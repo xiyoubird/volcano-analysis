@@ -148,7 +148,8 @@ cmd_up() {
     if [ "$existing_images" != "$NODE_IMAGE" ]; then
       die "集群 ${CLUSTER_NAME} 已存在，但节点镜像不是 ${NODE_IMAGE}
      实际：${existing_images:-（查不到节点容器）}
-     这个集群大概率是别的项目建的，同名撞车了。二选一：
+     这个集群不是当前参数（K8S_VERSION=${K8S_VERSION}）建的：要么是别的项目占了这个名字，
+     要么是本仓库改版本前留下的旧址。二选一：
        1) 换个集群名继续（不动老集群）：
             CLUSTER_NAME=volcano-lab-127 bash scripts/setup-kind.sh
        2) 确认老集群可以删（删了就没了）：
