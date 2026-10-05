@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""扫描 reports/*/meta.yml，重新生成根 README.md 里的报告索引表。
+"""扫描 reports/*/meta.yml，重新生成根 README.md 里的报告索引表与模块覆盖情况。
 
 用法：
     python3 scripts/build_index.py            # 更新 README.md
@@ -11,11 +11,14 @@
   * 只认下面这些字段，其余字段会被忽略（不报错，方便以后扩展）
         name / github / title / module / status / updated
   * 以 _ 或 . 开头的目录会被跳过（例如 reports/_example/）
+  * 模块覆盖情况由 docs/01-architecture.md §3 的「代码模块地图」推导；
+    那张表的格式被改动后，覆盖统计会自动跳过（不会报错）
 """
 
 from __future__ import annotations
 
 import argparse
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -23,6 +26,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 REPORTS_DIR = ROOT / "reports"
 README = ROOT / "README.md"
+ARCH_DOC = ROOT / "docs" / "01-architecture.md"
 
 BEGIN_MARK = "<!-- INDEX:BEGIN -->"
 END_MARK = "<!-- INDEX:END -->"
@@ -34,9 +38,11 @@ STATUS_ORDER = {"进行中": 0, "待评审": 1, "规划中": 2, "已完成": 3}
 # 单个文件超过这个大小就提醒（和 .gitignore / CONTRIBUTING.md 里的 5MB 规则一致）
 MAX_TRACKED_BYTES = 5 * 1024 * 1024
 
+BACKTICK = re.compile(r"`([^`]+)`")
+
 
 def parse_flat_yaml(path: Path) -> dict[str, str]:
-    """解析只有 key: value 的极简 YAML。解析不了的行走 parse_errors。"""
+    """解析只有 key: value 的极简 YAML。解析不了的行走 stderr 警告。"""
     data: dict[str, str] = {}
     for lineno, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
         line = raw.strip()
@@ -46,8 +52,7 @@ def parse_flat_yaml(path: Path) -> dict[str, str]:
             print(f"  ! {path}:{lineno} 不是 key: value 格式，已忽略：{line!r}", file=sys.stderr)
             continue
         key, _, value = line.partition(":")
-        value = value.strip().strip('"').strip("'")
-        data[key.strip()] = value
+        data[key.strip()] = value.strip().strip('"').strip("'")
     return data
 
 
@@ -112,12 +117,94 @@ def collect_entries() -> tuple[list[dict[str, str]], list[str]]:
     return entries, problems
 
 
+def parse_module_map() -> list[tuple[str, list[str]]]:
+    """从 docs/01-architecture.md §3 读出模块清单。
+
+    返回 [(显示名, [模块前缀, ...]), ...]；解析不到就返回空列表。
+    """
+    if not ARCH_DOC.is_file():
+        return []
+    rows: list[tuple[str, list[str]]] = []
+    for line in ARCH_DOC.read_text(encoding="utf-8").splitlines():
+        if not line.startswith("|"):
+            continue
+        cells = line.split("|")
+        # "| a | b | c |" -> ['', ' a ', ' b ', ' c ', '']
+        if len(cells) != 5 or not cells[1].strip().startswith("`"):
+            continue
+        tokens = [t.rstrip("/") for t in BACKTICK.findall(cells[1])]
+        if tokens:
+            rows.append((cells[1].strip(), tokens))
+    return rows
+
+
+def match_module(module: str, rows: list[tuple[str, list[str]]]) -> int | None:
+    """把认领的 module 归到模块地图的某一行（最长前缀匹配）。"""
+    if not module:
+        return None
+    best, best_len = None, -1
+    for i, (_, tokens) in enumerate(rows):
+        for t in tokens:
+            if (module == t or module.startswith(t + "/")) and len(t) > best_len:
+                best, best_len = i, len(t)
+    return best
+
+
+def render_coverage(
+    entries: list[dict[str, str]], rows: list[tuple[str, list[str]]]
+) -> list[str]:
+    if not rows:
+        return []
+
+    claimers: dict[int, list[str]] = {}
+    unmatched: list[str] = []
+    for e in entries:
+        idx = match_module(e["module"], rows)
+        if idx is None:
+            if e["module"]:
+                unmatched.append(f"{e['name']}（`{e['module']}`）")
+            continue
+        claimers.setdefault(idx, []).append(e["name"])
+
+    lines = [f"**模块覆盖**：已认领 **{len(claimers)} / {len(rows)}** 个模块。", ""]
+
+    missing = [
+        tok
+        for i, (_, tokens) in enumerate(rows)
+        if i not in claimers
+        for tok in tokens
+    ]
+    if missing:
+        lines += [
+            "未被认领的模块（组长兜底清单的来源）："
+            + "、".join(f"`{t}/`" for t in missing),
+            "",
+        ]
+    else:
+        lines += ["所有模块都已被认领。", ""]
+
+    if unmatched:
+        lines += [
+            "⚠️ 以下认领的 `module` 不在模块地图里（可能是笔误，或是一个更细的子模块）："
+            + "、".join(unmatched),
+            "",
+        ]
+
+    lines += ["<details><summary>展开完整覆盖情况</summary>", ""]
+    lines += ["| 模块 | 认领人 |", "| --- | --- |"]
+    for i, (name, _) in enumerate(rows):
+        who = "、".join(claimers.get(i, [])) or "—"
+        lines.append(f"| {name} | {who} |")
+    lines += ["", "</details>", ""]
+    return lines
+
+
 def esc(text: str) -> str:
     """转义会破坏 Markdown 表格的字符。"""
     return text.replace("|", "\\|").replace("\n", " ").strip()
 
 
-def render_block(entries: list[dict[str, str]]) -> str:
+def render_block(entries: list[dict[str, str]], rows: list[tuple[str, list[str]]]) -> str:
     lines = [
         BEGIN_MARK,
         "<!-- 本区块由 scripts/build_index.py 自动生成，请勿手改。",
@@ -132,10 +219,11 @@ def render_block(entries: list[dict[str, str]]) -> str:
             "> 开始写报告：复制 `templates/report.md` 到 `reports/<你的名字>/report.md`，",
             "> 写好 `reports/<你的名字>/meta.yml`，然后运行 `python3 scripts/build_index.py`。",
             "> 具体步骤见 [CONTRIBUTING.md](CONTRIBUTING.md) §1。",
+            "",
         ]
     else:
         lines += [
-            "| 组员 | 主题 | 模块 | 状态 | 实验数 | 最后更新 | 报告 |",
+            "| 组员 | 主题 | 模块 | 状态 | 运行记录 | 最后更新 | 报告 |",
             "| --- | --- | --- | --- | ---: | --- | --- |",
         ]
         for e in entries:
@@ -143,16 +231,18 @@ def render_block(entries: list[dict[str, str]]) -> str:
             if e["github"]:
                 who = f"{who} (@{esc(e['github'])})"
             lines.append(
-                f"| {who} | {esc(e['title'])} | `{esc(e['module'])}` | {esc(e['status'])} "
+                f"| {who} | {esc(e['title'])} | `{esc(e['module']) or '—'}` | {esc(e['status'])} "
                 f"| {e['experiments']} | {esc(e['updated'])} | [{e['dir']}]({e['report_link']}) |"
             )
         lines += [
             "",
             f"共 {len(entries)} 人。状态说明：进行中 → 待评审 → 已完成；"
             "`规划中` 表示尚未开始。",
+            "",
         ]
 
-    lines += ["", END_MARK]
+    lines += render_coverage(entries, rows)
+    lines += [END_MARK]
     return "\n".join(lines)
 
 
@@ -171,10 +261,7 @@ def check_tracked_sizes() -> list[str]:
     """提醒仓库里被 git 跟踪的超大文件。"""
     try:
         out = subprocess.run(
-            ["git", "ls-files", "-z"],
-            cwd=ROOT,
-            capture_output=True,
-            check=True,
+            ["git", "ls-files", "-z"], cwd=ROOT, capture_output=True, check=True
         ).stdout
     except (OSError, subprocess.CalledProcessError):
         return []
@@ -183,9 +270,8 @@ def check_tracked_sizes() -> list[str]:
     for name in out.decode("utf-8", "replace").split("\0"):
         if not name:
             continue
-        p = ROOT / name
         try:
-            size = p.stat().st_size
+            size = (ROOT / name).stat().st_size
         except OSError:
             continue
         if size > MAX_TRACKED_BYTES:
@@ -194,7 +280,7 @@ def check_tracked_sizes() -> list[str]:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="生成 README.md 中的报告索引表")
+    ap = argparse.ArgumentParser(description="生成 README.md 中的报告索引表与模块覆盖情况")
     ap.add_argument("--check", action="store_true", help="只检查，不写文件；过期则退出码为 1")
     args = ap.parse_args()
 
@@ -203,7 +289,14 @@ def main() -> int:
         return 2
 
     entries, problems = collect_entries()
-    block = render_block(entries)
+    rows = parse_module_map()
+    if not rows:
+        print(
+            "提示：未能从 docs/01-architecture.md 解析出模块地图，跳过模块覆盖统计。",
+            file=sys.stderr,
+        )
+
+    block = render_block(entries, rows)
     current = README.read_text(encoding="utf-8")
     updated = apply_block(current, block)
 
@@ -232,7 +325,6 @@ def main() -> int:
     else:
         README.write_text(updated, encoding="utf-8")
         print(f"已更新 README.md 索引（{len(entries)} 位成员）。")
-
     return 0
 
 

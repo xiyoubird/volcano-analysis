@@ -4,24 +4,29 @@
 # 语法：<路径模式>  <@用户 或 @组织/团队>
 #
 # ⚠️ 重要：只有当被 @ 的账号对**本仓库有写权限**时，CODEOWNERS 才会生效。
-#    没加权限的账号会被 GitHub 静默忽略（不会有任何报错），你以为配好了其实没生效。
+#    没加权限的账号会被 GitHub 静默忽略（**不会有任何报错**），你以为配好了其实没生效。
+#    所以顺序是：先在 Settings → Collaborators 加人，再改本文件。
 #
-# ⚠️ 待办：把下面的占位用户名换成组员的真实 GitHub 用户名。
-#    组长（仓库 owner）：@xiyoubird
-#    组员：@<组员1> @<组员2> @<组员3> @<组员4>
+# ⚠️ 待办：把下面的占位符换成 5 位组员的真实 GitHub 用户名。
+#    组员名单：李鹏飞（组长）、张又文、童天宇、谈宁远、颜秉丽
 #
 # 匹配规则是「最后匹配到的那一行生效」，所以越具体的路径要写在越后面。
 
-# 默认：所有改动先找组长
+# ---- 默认：所有改动先找组长 ----
 *                           @xiyoubird
 
-# 每个人的报告目录由本人 review（把下面的示例行改成真实目录和用户名）
-/reports/_example/          @xiyoubird
-# /reports/zhangsan/        @zhangsan
-# /reports/lisi/            @lisi
-# /reports/wangwu/          @wangwu
+# ---- 每个人的报告目录由本人 review ----
+# 把下面每行的注释去掉，并把 @ 后面的用户名换成真实的
+/reports/lipengfei/         @xiyoubird
+# /reports/zhangyouwen/     @<张又文的GitHub用户名>
+# /reports/tongtianyu/      @<童天宇的GitHub用户名>
+# /reports/tanninyuan/      @<谈宁远的GitHub用户名>
+# /reports/yanbingli/       @<颜秉丽的GitHub用户名>
 
-# 共享内容需要组长过一眼，避免口径被单方面改掉
+# ---- 示例目录不属于任何人，改它要组长点头 ----
+/reports/_example/          @xiyoubird
+
+# ---- 共享内容需要组长过一眼，避免口径被单方面改掉 ----
 /docs/                      @xiyoubird
 /templates/                 @xiyoubird
 /baseline.md                @xiyoubird

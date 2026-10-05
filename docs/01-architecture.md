@@ -61,31 +61,69 @@ flowchart TB
 ## 3. 代码模块地图
 
 <!-- 用途：让每个人一眼看到"我的模块在哪、和谁相邻、边界在哪"。
-     这张表也是选题矩阵的基础，最后一列请各组员认领。 -->
+     这张表就是选题清单。认领方式见下方 §3.1。 -->
 
-| 目录 | 职责 | 上级设计文档 | 负责人 |
-| --- | --- | --- | --- |
-| `pkg/scheduler/` | 调度器主体：调度循环、Session 管理 | `docs/design/execution-flow.md` | 待填 |
-| `pkg/scheduler/actions/` | 调度动作：allocate / backfill / enqueue / preempt / reclaim / gangpreempt / gangreclaim / shuffle | `docs/design/preempt-action.md`、`docs/design/reclaim-action.md` | 待填 |
-| `pkg/scheduler/plugins/` | 调度插件（24 个，见 `docs/glossary.md`） | `docs/design/custom-plugin.md`、`docs/design/plugin-conf.md` | 待填 |
-| `pkg/scheduler/framework/` | 插件与 Action 的扩展点接口、Session 定义 | `docs/design/distributed-framework-plugins.md` | 待填 |
-| `pkg/scheduler/cache/` | 集群状态缓存，供调度决策读取 | — | 待填 |
-| `pkg/scheduler/api/` | 调度内部的数据模型（Job / Task / Queue 等） | — | 待填 |
-| `pkg/scheduler/conf/` | 调度器配置的解析与校验 | `docs/design/dynamic-conf.md`、`docs/design/plugin-conf.md` | 待填 |
-| `pkg/scheduler/metrics/` | 调度器指标（Prometheus） | `docs/design/metrics.md` | 待填 |
-| `pkg/scheduler/unschedulable/` | 不可调度作业的缓存与唤醒 | `docs/design/unschedulable-job-cache.md` | 待填 |
-| `pkg/scheduler/gate/` | 调度门控 | `docs/design/scheduling-gates-queue-admission.md` | 待填 |
-| `pkg/controllers/` | 各控制器：作业生命周期、队列、PodGroup、JobFlow 等 | `docs/design/job-api.md`、`docs/design/jobflow/` | 待填 |
-| `pkg/webhooks/admission/` | 准入校验：`jobs` `pods` `podgroups` `queues` `jobflows` `cronjobs` `hypernodes` | — | 待填 |
-| `pkg/cli/` | 命令行工具 | `docs/design/command-line-enhancement.md` | 待填 |
-| `pkg/agent/`、`pkg/agentscheduler/` | 混部场景的节点侧 Agent | `docs/design/agent-scheduler.md` | 待填 |
-| `pkg/networkqos/` | 网络 QoS | — | 待填 |
-| `pkg/metriccollect/`、`pkg/resourceusage/` | 指标采集与资源用量统计 | `docs/design/usage-based-scheduling.md` | 待填 |
-| `pkg/kube/`、`pkg/util/`、`pkg/config/`、`pkg/features/`、`pkg/filewatcher/`、`pkg/signals/`、`pkg/version/` | 公共设施 | — | 待填 |
-| `cmd/` | 各二进制的入口 | — | 待填 |
-| `installer/` | 部署清单与 Helm chart | — | 待填 |
-| `test/e2e/` | 端到端测试 | — | 待填 |
-| `benchmark/` | 性能压测用例与脚本 | `benchmark/README.md` | 待填 |
+| 目录 | 职责 | 上级设计文档 |
+| --- | --- | --- |
+| `pkg/scheduler/` | 调度器主体：调度循环、Session 管理 | `docs/design/execution-flow.md` |
+| `pkg/scheduler/actions/` | 调度动作：allocate / backfill / enqueue / preempt / reclaim / gangpreempt / gangreclaim / shuffle | `docs/design/preempt-action.md`、`docs/design/reclaim-action.md` |
+| `pkg/scheduler/plugins/` | 调度插件（24 个，见 `docs/glossary.md`） | `docs/design/custom-plugin.md`、`docs/design/plugin-conf.md` |
+| `pkg/scheduler/framework/` | 插件与 Action 的扩展点接口、Session 定义 | `docs/design/distributed-framework-plugins.md` |
+| `pkg/scheduler/cache/` | 集群状态缓存，供调度决策读取 | — |
+| `pkg/scheduler/api/` | 调度内部的数据模型（Job / Task / Queue 等） | — |
+| `pkg/scheduler/conf/` | 调度器配置的解析与校验 | `docs/design/dynamic-conf.md`、`docs/design/plugin-conf.md` |
+| `pkg/scheduler/metrics/` | 调度器指标（Prometheus） | `docs/design/metrics.md` |
+| `pkg/scheduler/unschedulable/` | 不可调度作业的缓存与唤醒 | `docs/design/unschedulable-job-cache.md` |
+| `pkg/scheduler/gate/` | 调度门控 | `docs/design/scheduling-gates-queue-admission.md` |
+| `pkg/controllers/` | 各控制器：作业生命周期、队列、PodGroup、JobFlow 等 | `docs/design/job-api.md`、`docs/design/jobflow/` |
+| `pkg/webhooks/admission/` | 准入校验：`jobs` `pods` `podgroups` `queues` `jobflows` `cronjobs` `hypernodes` | — |
+| `pkg/cli/` | 命令行工具 | `docs/design/command-line-enhancement.md` |
+| `pkg/agent/`、`pkg/agentscheduler/` | 混部场景的节点侧 Agent | `docs/design/agent-scheduler.md` |
+| `pkg/networkqos/` | 网络 QoS | — |
+| `pkg/metriccollect/`、`pkg/resourceusage/` | 指标采集与资源用量统计 | `docs/design/usage-based-scheduling.md` |
+| `pkg/kube/`、`pkg/util/`、`pkg/config/`、`pkg/features/`、`pkg/filewatcher/`、`pkg/signals/`、`pkg/version/` | 公共设施 | — |
+| `cmd/` | 各二进制的入口 | — |
+| `installer/` | 部署清单与 Helm chart | — |
+| `test/e2e/` | 端到端测试 | — |
+| `benchmark/` | 性能压测用例与脚本 | `benchmark/README.md` |
+
+### 3.1 模块认领（★可重复认领）
+
+**认领方式 = 改你自己 `meta.yml` 里的字段，不要来改本文件的表格。**
+5 个人同时改同一张表必然冲突，所以这张表只做「选题清单」，认领记录在别处。
+
+```yaml
+# reports/<你的名字>/meta.yml
+name: 你的名字
+github: 你的GitHub用户名
+title: gang 插件在资源碎片下为何出现 PodGroup 长期 Pending   # 具体到你要回答的问题
+module: pkg/scheduler/plugins/gang                        # 从上表挑，建议下沉到插件/Action 级
+status: 进行中
+updated: 2026-10-10
+```
+
+改完运行 `python3 scripts/build_index.py`，根 [README 的报告索引](../README.md#报告索引)
+会自动更新 —— **那张表才是唯一的认领汇总**。本文件的模块地图只是可选项清单。
+
+**认领规则：**
+
+1. **可重复认领。** 同一个模块可以由 2 个人同时做，这不是冲突，是交叉验证。
+   但两人的 `title` 必须写清各自的角度，例如一个人做「公平性度量」，
+   另一个人做「饥饿现象的复现与边界」。
+2. **每人至少认领一个模块**，多认领不限。组长负责兜底没被认领的
+   （见 [组长手册 §二](组长手册.md)）。
+3. **粒度往下沉。** 停在 `pkg/scheduler/` 这一层，写出来一定是"Volcano 调度器概述"——
+   两页纸讲完全是人尽皆知的内容，除了「项目结构分析」以外拿不到任何分。
+   下沉到**具体插件 / 具体 Action / 具体控制器**，才有可追踪的调用链和可验证的结论。
+4. **认领后到群里说一句**（"我认领 X"），组长据此更新兜底清单。
+
+**自检：你的认领合格吗？** 标准是能不能用一句话说清「我要回答什么问题」。
+
+| | 例子 | 判断 |
+| --- | --- | --- |
+| ❌ | "我分析调度器" | 太大，必然写成概述 |
+| ❌ | "我研究 gang 插件" | 没有目标，写出来是代码复述 |
+| ✅ | "gang 插件在资源碎片场景下，为什么会出现 PodGroup 长期 Pending" | 有目标、可设计验证、可给结论 |
 
 **自己看清结构**（比读别人的总结更可靠）：
 

@@ -17,6 +17,8 @@ dist/
 out/
 *.docx
 *.pdf
+# 例外：老师的原始材料是需求来源，必须在仓库里
+!docs/elearn/*.pdf
 
 # ---- 实验临时产物 / 大文件 ----
 # 规则：单个文件超过 5MB 就不要提交，走 Git LFS 或网盘 + data/MANIFEST.md
