@@ -56,7 +56,7 @@ bash scripts/fetch-baseline.sh /tmp/vol # 或者指定路径
 
 | 项 | 本组规定值 | 我的实际值 |
 | --- | --- | --- |
-| Kubernetes 版本 | **1.32.0 —— 见 §3.1 / [ADR-0004](docs/adr/0004-kind-k8s-132-mirror.md)** | 待填 |
+| Kubernetes 版本 | **1.27.16 —— 见 §3.1 / [ADR-0005](docs/adr/0005-k8s-127-baseline.md)** | 待填 |
 | 集群创建方式 | `kind`（`scripts/setup-kind.sh`），kind v0.31.0 | 待填 |
 | Volcano 部署方式 | 源码内 Helm chart：`installer/helm/chart/volcano` | 待填 |
 | Volcano chart version | `1.15.3` | 待填 |
@@ -66,20 +66,35 @@ bash scripts/fetch-baseline.sh /tmp/vol # 或者指定路径
 | 主机平台 | macOS / arm64（Apple Silicon）—— 镜像为 **arm64 原生**，见 §3.2 | 待填 |
 | Go 版本（仅当你要改代码） | 见 `volcano/go.mod` 的 `go` 指令（v1.15.3 为 `go 1.25.0`） | 待填 |
 
-> 集群名：默认 `volcano-lab`。**本机若该名字已被别的集群占用，用 `CLUSTER_NAME=volcano-lab-132`**，
+> 集群名：默认 `volcano-lab`。**本机若该名字已被别的集群占用，用 `CLUSTER_NAME=volcano-lab-127`**，
 > 不要为了腾名字去删别人的集群（`scripts/setup-kind.sh` 会拦住并提示）。
+> ⚠️ 改版本（1.32 → 1.27）后，**旧的 1.32 集群要自己删掉**再重建，否则脚本会拦住，
+> 而"脚本写 1.27、实际跑 1.32"会让实验记录里的环境快照互相矛盾：`bash scripts/setup-kind.sh down`。
 
 ### 3.1 Kubernetes 版本
 
 上游 `v1.15.3` 的 README 兼容性矩阵标注：**Volcano v1.15 与 Kubernetes 1.23 – 1.35 完全兼容**
-（1.21 / 1.22 标为 `-`，即 Volcano 用不到这些版本的特性）。
+（1.21 / 1.22 标为 `-`，即 Volcano 用不到这些版本的特性）。其中 `Volcano v1.15` 行的
+`Kubernetes 1.27` 列是 `✓`（本地基线源码 `~/learn/volcano/README.md:183-186`）。
 
-**本组统一使用：`1.32.0`**（节点镜像 `kindest/node:v1.32.0`）。
+**本组统一使用：`1.27.16`**（节点镜像 `kindest/node:v1.27.16`）。
 
-- 选择理由与备选方案见 [ADR-0004](docs/adr/0004-kind-k8s-132-mirror.md)；**实测证据**：
-  2026-10-05 在 macOS 15.6 / Apple Silicon 上，`scripts/setup-kind.sh` 全流程跑通，
-  Volcano v1.15.3 三个组件 Pod 全部 `1/1 Running`，smoke 冒烟作业的两个 Pod 由 volcano 调度成功。
-- 该 ADR 目前是「提议」状态，组会确认后转「已接受」。
+- 版本由 `1.32.0` 改为 `1.27.16` 的理由、备选方案与代价（kubectl / client-go 两个方向的
+  版本 skew）见 [ADR-0005](docs/adr/0005-k8s-127-baseline.md)；镜像加速与同名撞车保护见
+  [ADR-0004](docs/adr/0004-kind-k8s-132-mirror.md)（**其 K8s 版本条款已被 ADR-0005 取代，其余结论仍有效**）。
+- 为什么钉 `1.27.16` 而不是 `1.27.0`：kind 官方节点镜像的 1.27 线**只有 8 个 tag**
+  （`.0 / .1 / .2 / .3 / .10 / .11 / .13 / .16`，均含 arm64），`.16` 是该线最后一个补丁。
+- **实测证据（A 级）**：2026-10-05 在 macOS 15.6 / Apple Silicon 上按本基线**重建**环境：
+  `kubectl version` 报 `Server Version: v1.27.16`；三个节点均为 `v1.27.16 / arm64 /
+  containerd 1.7.18 / Debian 12 (bookworm)`；Volcano v1.15.3 三个组件 `1/1 Running`；
+  `scripts/setup-kind.sh smoke` 的两个 Pod 由 volcano 调度成功并跑完（vcjob `Completed`）。
+  完整原始输出：[docs/adr/0005-evidence-kind-127.log](docs/adr/0005-evidence-kind-127.log)。
+- ⚠️ 本机 `kubectl` 是 `v1.35.3`，比集群新 8 个小版本，**超出官方 ±1 的 skew 范围**。
+  本组用到的 `get / describe / logs / apply / rollout status` 实测正常；
+  遇到诡异报错时先怀疑它，再怀疑 Volcano。
+- ⚠️ Volcano v1.15.3 的二进制用 `k8s.io/client-go v0.35.3` 编译（`~/learn/volcano/go.mod:40`），
+  也比 1.27 的 API 新。上游矩阵说兼容（C 级证据），所以**每次实验前先跑一次 `smoke`**，
+  用 A 级证据代替对矩阵的信任。
 
 
 ### 3.2 镜像
@@ -99,7 +114,7 @@ docker.io/volcanosh/vc-controller-manager:v1.15.3  "architecture": "arm64"
 docker.io/volcanosh/vc-webhook-manager:v1.15.3     "architecture": "arm64"
 ```
 
-（三个节点 `architecture` 均为 arm64、kubelet `v1.32.0`。）
+（三个节点 `architecture` 均为 arm64、kubelet `v1.27.16`、containerd `1.7.18`。）
 
 ⚠️ **拉取路径的实测结论（别想当然）**：
 
@@ -111,12 +126,20 @@ docker.io/volcanosh/vc-webhook-manager:v1.15.3     "architecture": "arm64"
 结论：**镜像加速不是本机跑通的必要条件**（实测三个镜像就是节点直连拉下来的），但它是
 连不通 docker.io 的网络下的兜底，而且**配置必须写成节点那个 containerd 版本认的插件路径**：
 
-- `kindest/node:v1.32.0` 里是 **containerd 1.7.24** → 路径 `io.containerd.grpc.v1.cri`
+- `kindest/node:v1.27.16` 里是 **containerd 1.7.18** → 路径 `io.containerd.grpc.v1.cri`
 - containerd **2.x** 的节点镜像 → 路径 `io.containerd.cri.v1.images`
 
-写错版本**不报错、静默失效**（第一次就是这么踩的：只写了 2.x 路径，在 1.7.24 上整段被忽略，
+写错版本**不报错、静默失效**（第一次就是这么踩的：只写了 2.x 路径，在 containerd 1.x 上整段被忽略，
 配置等于没写）。`scripts/setup-kind.sh` 现在**两条都写**，并自动在末尾补
 `https://registry-1.docker.io` 回源。细节见 [ADR-0004](docs/adr/0004-kind-k8s-132-mirror.md)。
+
+**本轮（K8s 1.27.16 重建）新增两条实测，供后来者估时间：**
+
+- **最慢的一步是节点镜像，不是 Volcano**：`kindest/node:v1.27.16` 约 1.5GB，在**宿主机 dockerd**
+  侧经 `registry-mirrors` 拉取，实测耗时约 **15 分钟**（这一步与 K8s 版本无关，纯粹是镜像大小 + 镜像站速度）。
+- **Volcano 三个镜像仍由节点内 containerd 拉取**：事件里是
+  `Successfully pulled image ... in 19.8s / 22.7s / 24.8s`，说明镜像加速在 1.27.16 节点上同样生效
+  （节点 containerd **1.7.18** 认领的是 `io.containerd.grpc.v1.cri` 那条，两条都写的策略继续有效）。
 
 ### 3.3 本项目使用的工具链
 
@@ -147,4 +170,5 @@ docker.io/volcanosh/vc-webhook-manager:v1.15.3     "architecture": "arm64"
 | --- | --- | --- | --- |
 | 2026-10-05 | 初始冻结：`v1.15.3` / `d2dd7024` | （填名字） | [0001](docs/adr/0001-pin-baseline-version.md) |
 | 2026-10-05 | 环境口径落地：K8s 定为 `1.32.0`（kind v0.31.0）；确认三个镜像有原生 arm64；补节点内 containerd 镜像加速与同名撞车保护 | （填名字） | [0004](docs/adr/0004-kind-k8s-132-mirror.md) |
+| 2026-10-05 | **K8s 版本由 `1.32.0` 改为 `1.27.16`**（kind 官方 1.27 线最后一个补丁）；删掉两个 1.32 旧集群并重建、复跑 smoke；镜像加速与同名撞车保护沿用 ADR-0004 | （填名字） | [0005](docs/adr/0005-k8s-127-baseline.md) |
 |  |  |  |  |

@@ -326,7 +326,15 @@ REGISTRY_MIRRORS= bash scripts/setup-kind.sh
 ```
 
 > 配置写在**节点**里，所以要重建集群才生效，改 Pod 没用。取舍与实测数据见
-> [ADR-0004](docs/adr/0004-kind-k8s-132-mirror.md)。
+> [ADR-0004](docs/adr/0004-kind-k8s-132-mirror.md)（其 K8s 版本条款已被
+> [ADR-0005](docs/adr/0005-k8s-127-baseline.md) 取代，其余结论仍有效）。
+
+**实验集群用哪个 K8s 版本？**
+统一 **`1.27.16`**（节点镜像 `kindest/node:v1.27.16`），由
+[ADR-0005](docs/adr/0005-k8s-127-baseline.md) 定；依据是上游兼容矩阵里
+`Volcano v1.15` × `Kubernetes 1.27` = ✓，且 `1.27.16` 是 kind 官方 1.27 线最后一个补丁。
+⚠️ 版本从 1.32.0 改过来，**本机旧的 1.32 集群要先 `down` 掉再重建**，
+否则 `scripts/setup-kind.sh` 的同名撞车保护会拦住你 —— 那是保护，不是 bug。
 
 **发现分歧（指标怎么算、用哪个 K8s 版本）怎么办？**
 写 ADR，模板在 [docs/adr/0000-template.md](docs/adr/0000-template.md)。

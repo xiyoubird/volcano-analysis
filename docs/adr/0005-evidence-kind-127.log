@@ -1,0 +1,348 @@
+# K8s 1.27.16 重建的原始输出（A 级证据，对应 ADR-0005）
+# 机器：macOS 15.6 / Apple Silicon(arm64)；kind v0.31.0；docker 29.1.3
+# 每一步的标题由下方「==== 步骤/证据 X ====」分段，"$ <命令>" 行是实际执行的命令
+# 说明：开头那行 "docker server" 为空是本行 --format 模板写错（{{.ServerVersion}} 不存在），
+#       正确值见文末「证据 D（补）：docker server: 29.1.3 / arm64」。
+
+
+==================== 环境时间 ====================
+Mon Oct  5 18:31:15 CST 2026
+
+==================== 工具版本 ====================
+kind v0.31.0 go1.25.5 darwin/arm64
+Client Version: v1.35.3
+Kustomize Version: v5.7.1
+v4.1.3+gc94d381
+docker server 
+docker registry mirrors: ["https://docker.m.daocloud.io/","https://docker.nju.edu.cn/","https://docker.mirrors.sjtug.sjtu.edu.cn/"]
+
+==================== 基线源码 commit ====================
+d2dd7024f4af3070f9d99d68a78973893908a743
+
+==================== 步骤 0：清理上一轮删集群留下的 kubeconfig 残留（容器已删，只剩 context） ====================
+No kind clusters found.
+deleted context kind-volcano-lab
+deleted context kind-volcano-lab-132
+
+==================== 步骤 1：确保 1.27.16 节点镜像在本地（宿主机 dockerd 拉取，失败则走镜像站） ====================
+v1.27.16: Pulling from kindest/node
+6de85f2d4e25: Pulling fs layer
+ca3cf612e9ed: Pulling fs layer
+ca3cf612e9ed: Download complete
+ca3cf612e9ed: Pull complete
+6de85f2d4e25: Download complete
+6de85f2d4e25: Pull complete
+Digest: sha256:2d21a61643eafc439905e18705b8186f3296384750a835ad7a005dceb9546d20
+Status: Downloaded newer image for kindest/node:v1.27.16
+docker.io/kindest/node:v1.27.16
+pulled from docker.io
+local image: [kindest/node:v1.27.16] arm64/linux
+
+==================== 步骤 2：创建 1.27.16 集群 + 部署 Volcano ====================
+
+==================== $ bash scripts/setup-kind.sh ====================
+==> 基线源码校验通过：d2dd7024f4af3070f9d99d68a78973893908a743
+
+── 1/4 创建 kind 集群 volcano-lab（K8s 1.27.16，1 控制面 + 2 工作节点）
+==> 节点内 containerd 镜像加速："https://docker.m.daocloud.io", "https://docker.nju.edu.cn", "https://registry-1.docker.io"
+Creating cluster "volcano-lab" ...
+ • Ensuring node image (kindest/node:v1.27.16) 🖼  ...
+ ✓ Ensuring node image (kindest/node:v1.27.16) 🖼
+ • Preparing nodes 📦 📦 📦   ...
+ ✓ Preparing nodes 📦 📦 📦 
+ • Writing configuration 📜  ...
+ ✓ Writing configuration 📜
+ • Starting control-plane 🕹️  ...
+ ✓ Starting control-plane 🕹️
+ • Installing CNI 🔌  ...
+ ✓ Installing CNI 🔌
+ • Installing StorageClass 💾  ...
+ ✓ Installing StorageClass 💾
+ • Joining worker nodes 🚜  ...
+ ✓ Joining worker nodes 🚜
+Set kubectl context to "kind-volcano-lab"
+You can now use your cluster with:
+
+kubectl cluster-info --context kind-volcano-lab
+
+Not sure what to do next? 😅  Check out https://kind.sigs.k8s.io/docs/user/quick-start/
+
+── 2/4 准备 Helm chart 依赖
+==> chart 依赖已就绪。
+
+── 3/4 部署 Volcano（chart v1.15.3 / 镜像 tag v1.15.3）
+Release "volcano" does not exist. Installing it now.
+level=INFO msg="found symbolic link in path. Contents of linked file included and used" path=/Users/550m/learn/volcano/installer/helm/chart/volcano/charts/jobflow/crd/v1 resolved=/Users/550m/learn/volcano/installer/helm/chart/volcano/charts/jobflow/crd/bases
+level=INFO msg="found symbolic link in path. Contents of linked file included and used" path=/Users/550m/learn/volcano/installer/helm/chart/volcano/crd/v1 resolved=/Users/550m/learn/volcano/installer/helm/chart/volcano/crd/bases
+NAME: volcano
+LAST DEPLOYED: Mon Oct  5 18:48:11 2026
+NAMESPACE: volcano-system
+STATUS: deployed
+REVISION: 1
+DESCRIPTION: Install complete
+TEST SUITE: None
+NOTES:
+Thank you for installing volcano.
+
+Your release is named volcano.
+
+For more information on volcano, visit:
+https://volcano.sh/
+
+── 4/4 等待组件就绪
+==> 等待 deploy/volcano-scheduler ...
+deployment "volcano-scheduler" successfully rolled out
+==> 等待 deploy/volcano-controllers ...
+deployment "volcano-controllers" successfully rolled out
+==> 等待 deploy/volcano-admission ...
+deployment "volcano-admission" successfully rolled out
+
+── 集群状态
+volcano-lab
+
+
+── 节点
+NAME                        STATUS   ROLES           AGE     VERSION    INTERNAL-IP   EXTERNAL-IP   OS-IMAGE                         KERNEL-VERSION     CONTAINER-RUNTIME
+volcano-lab-control-plane   Ready    control-plane   2m24s   v1.27.16   172.19.0.4    <none>        Debian GNU/Linux 12 (bookworm)   6.12.54-linuxkit   containerd://1.7.18
+volcano-lab-worker          Ready    <none>          2m1s    v1.27.16   172.19.0.3    <none>        Debian GNU/Linux 12 (bookworm)   6.12.54-linuxkit   containerd://1.7.18
+volcano-lab-worker2         Ready    <none>          2m1s    v1.27.16   172.19.0.2    <none>        Debian GNU/Linux 12 (bookworm)   6.12.54-linuxkit   containerd://1.7.18
+
+
+── Volcano 组件
+NAME                                  READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS            IMAGES                                              SELECTOR
+deployment.apps/volcano-admission     1/1     1            1           46s   admission             docker.io/volcanosh/vc-webhook-manager:v1.15.3      app=volcano-admission
+deployment.apps/volcano-controllers   1/1     1            1           46s   volcano-controllers   docker.io/volcanosh/vc-controller-manager:v1.15.3   app=volcano-controller
+deployment.apps/volcano-scheduler     1/1     1            1           46s   volcano-scheduler     docker.io/volcanosh/vc-scheduler:v1.15.3            app=volcano-scheduler
+
+NAME                                       READY   STATUS    RESTARTS   AGE   IP           NODE                  NOMINATED NODE   READINESS GATES
+pod/volcano-admission-6d967ff9f8-qmx57     1/1     Running   0          46s   10.244.2.2   volcano-lab-worker    <none>           <none>
+pod/volcano-controllers-5d98d667cb-vzg9t   1/1     Running   0          46s   10.244.2.3   volcano-lab-worker    <none>           <none>
+pod/volcano-scheduler-5669c6b7d9-mc9bw     1/1     Running   0          46s   10.244.1.3   volcano-lab-worker2   <none>           <none>
+
+==> 正在使用的镜像：
+  volcano-admission	docker.io/volcanosh/vc-webhook-manager:v1.15.3
+  volcano-controllers	docker.io/volcanosh/vc-controller-manager:v1.15.3
+  volcano-scheduler	docker.io/volcanosh/vc-scheduler:v1.15.3
+
+环境就绪。接下来：
+
+  1. 把下面这些值填进 baseline.md 的「我的实际值」一列：
+       K8s 版本        : 1.27.16
+       kind 节点镜像   : kindest/node:v1.27.16
+       Volcano 镜像 tag: v1.15.3
+       Volcano commit  : d2dd7024f4af3070f9d99d68a78973893908a743
+
+  2. 跑一次冒烟测试，确认调度器真的在工作：
+       bash scripts/setup-kind.sh smoke
+
+  3. 开始你的实验前，先读默认调度器配置 —— 很多 Action 默认是关的：
+       kubectl -n volcano-system get cm volcano-scheduler-configmap -o yaml
+
+  4. 用完释放资源（kind 集群会一直占内存）：
+       bash scripts/setup-kind.sh down
+
+[exit=0]
+
+==================== 步骤 3：冒烟测试 ====================
+
+==================== $ bash scripts/setup-kind.sh smoke ====================
+
+── 冒烟测试：建一个队列 + 提交一个 VolcanoJob
+queue.scheduling.volcano.sh/smoke-test created
+job.batch.volcano.sh/smoke-test-job created
+==> 等待 Job 状态（最多 120s）...
+==> 有两个 Pod 处于 Running —— 调度器工作正常 ✅
+NAME                      READY   STATUS    RESTARTS   AGE   IP           NODE                  NOMINATED NODE   READINESS GATES
+smoke-test-job-worker-0   1/1     Running   0          20s   10.244.1.5   volcano-lab-worker2   <none>           <none>
+smoke-test-job-worker-1   1/1     Running   0          20s   10.244.1.4   volcano-lab-worker2   <none>           <none>
+
+清理冒烟测试资源：
+
+  kubectl delete vcjob smoke-test-job      # 注意是 vcjob（Volcano 的 Job），不是原生 job
+  kubectl delete queue smoke-test
+
+如果 Pod 一直 Pending，按顺序排查：
+  1. kubectl -n volcano-system logs deploy/volcano-scheduler --tail=100
+  2. kubectl get podgroup smoke-test-job -o yaml        # 看 phase / conditions
+  3. kubectl describe pod <pending-pod>                  # 看 Events
+  4. 确认 Pod 的 spec.schedulerName 是 volcano（不是 default-scheduler）
+     —— 如果写成默认调度器，那这次测试根本没经过 Volcano，结论是假的。
+[exit=0]
+
+==================== 证据 A：kubectl 默认上下文 + 版本（含 server 版本） ====================
+kind-volcano-lab
+Client Version: v1.35.3
+Kustomize Version: v5.7.1
+Server Version: v1.27.16
+Warning: version difference between client (1.35) and server (1.27) exceeds the supported minor version skew of +/-1
+NAME                        ARCH    KUBELET    RUNTIME               OS
+volcano-lab-control-plane   arm64   v1.27.16   containerd://1.7.18   Debian GNU/Linux 12 (bookworm)
+volcano-lab-worker          arm64   v1.27.16   containerd://1.7.18   Debian GNU/Linux 12 (bookworm)
+volcano-lab-worker2         arm64   v1.27.16   containerd://1.7.18   Debian GNU/Linux 12 (bookworm)
+NAME                        STATUS   ROLES           AGE     VERSION    INTERNAL-IP   EXTERNAL-IP   OS-IMAGE                         KERNEL-VERSION     CONTAINER-RUNTIME
+volcano-lab-control-plane   Ready    control-plane   2m46s   v1.27.16   172.19.0.4    <none>        Debian GNU/Linux 12 (bookworm)   6.12.54-linuxkit   containerd://1.7.18
+volcano-lab-worker          Ready    <none>          2m23s   v1.27.16   172.19.0.3    <none>        Debian GNU/Linux 12 (bookworm)   6.12.54-linuxkit   containerd://1.7.18
+volcano-lab-worker2         Ready    <none>          2m23s   v1.27.16   172.19.0.2    <none>        Debian GNU/Linux 12 (bookworm)   6.12.54-linuxkit   containerd://1.7.18
+
+==================== 证据 B：Volcano 组件与镜像 ====================
+NAME                                  READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS            IMAGES                                              SELECTOR
+deployment.apps/volcano-admission     1/1     1            1           68s   admission             docker.io/volcanosh/vc-webhook-manager:v1.15.3      app=volcano-admission
+deployment.apps/volcano-controllers   1/1     1            1           68s   volcano-controllers   docker.io/volcanosh/vc-controller-manager:v1.15.3   app=volcano-controller
+deployment.apps/volcano-scheduler     1/1     1            1           68s   volcano-scheduler     docker.io/volcanosh/vc-scheduler:v1.15.3            app=volcano-scheduler
+
+NAME                                       READY   STATUS    RESTARTS   AGE   IP           NODE                  NOMINATED NODE   READINESS GATES
+pod/volcano-admission-6d967ff9f8-qmx57     1/1     Running   0          68s   10.244.2.2   volcano-lab-worker    <none>           <none>
+pod/volcano-controllers-5d98d667cb-vzg9t   1/1     Running   0          68s   10.244.2.3   volcano-lab-worker    <none>           <none>
+pod/volcano-scheduler-5669c6b7d9-mc9bw     1/1     Running   0          68s   10.244.1.3   volcano-lab-worker2   <none>           <none>
+volcano-admission	docker.io/volcanosh/vc-webhook-manager:v1.15.3
+volcano-controllers	docker.io/volcanosh/vc-controller-manager:v1.15.3
+volcano-scheduler	docker.io/volcanosh/vc-scheduler:v1.15.3
+
+==================== 证据 C：节点内 containerd 版本 + 镜像加速配置（1.27.16 认领哪条插件路径） ====================
+--- volcano-lab-control-plane ---
+containerd github.com/containerd/containerd v1.7.18 ae71819c4f5e67bb4d5ae76a6b735f29cc25774e
+      [plugins."io.containerd.cri.v1.images".registry.mirrors]
+        [plugins."io.containerd.cri.v1.images".registry.mirrors."docker.io"]
+          endpoint = ["https://docker.m.daocloud.io", "https://docker.nju.edu.cn", "https://registry-1.docker.io"]
+  [plugins."io.containerd.grpc.v1.cri"]
+--
+      [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
+        [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
+          endpoint = ["https://docker.m.daocloud.io", "https://docker.nju.edu.cn", "https://registry-1.docker.io"]
+
+--- volcano-lab-worker2 ---
+containerd github.com/containerd/containerd v1.7.18 ae71819c4f5e67bb4d5ae76a6b735f29cc25774e
+      [plugins."io.containerd.cri.v1.images".registry.mirrors]
+        [plugins."io.containerd.cri.v1.images".registry.mirrors."docker.io"]
+          endpoint = ["https://docker.m.daocloud.io", "https://docker.nju.edu.cn", "https://registry-1.docker.io"]
+  [plugins."io.containerd.grpc.v1.cri"]
+--
+      [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
+        [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
+          endpoint = ["https://docker.m.daocloud.io", "https://docker.nju.edu.cn", "https://registry-1.docker.io"]
+
+
+==================== 证据 D：Volcano 镜像的 CPU 架构（arm64 原生） ====================
+vc-scheduler:       "architecture": "arm64",
+vc-controller-manager: vc-webhook-manager:       "architecture": "arm64",
+
+==================== 证据 E：冒烟作业（Pod 是否 Running / scheduleName / 调度器归属） ====================
+NAME                      READY   STATUS    RESTARTS   AGE   IP           NODE                  NOMINATED NODE   READINESS GATES
+smoke-test-job-worker-0   1/1     Running   0          21s   10.244.1.5   volcano-lab-worker2   <none>           <none>
+smoke-test-job-worker-1   1/1     Running   0          21s   10.244.1.4   volcano-lab-worker2   <none>           <none>
+smoke-test-job-worker-0	schedulerName=volcano	node=volcano-lab-worker2	status=Running
+smoke-test-job-worker-1	schedulerName=volcano	node=volcano-lab-worker2	status=Running
+Error from server (NotFound): podgroups.scheduling.volcano.sh "smoke-test-job" not found
+NAME             STATE     MINAVAILABLE
+smoke-test-job   Running   2
+
+==================== 证据 F：默认调度器配置（3 个 Action / 9 个插件） ====================
+apiVersion: v1
+data:
+  volcano-scheduler.conf: |
+    actions: "enqueue, allocate, backfill"
+    tiers:
+    - plugins:
+      - name: priority
+      - name: gang
+        enablePreemptable: false
+      - name: conformance
+    - plugins:
+      - name: overcommit
+      - name: drf
+        enablePreemptable: false
+      - name: predicates
+      - name: proportion
+      - name: nodeorder
+      - name: binpack
+kind: ConfigMap
+metadata:
+  annotations:
+    meta.helm.sh/release-name: volcano
+    meta.helm.sh/release-namespace: volcano-system
+  creationTimestamp: "2026-10-05T10:49:25Z"
+  labels:
+    app.kubernetes.io/managed-by: Helm
+  name: volcano-scheduler-configmap
+  namespace: volcano-system
+  resourceVersion: "678"
+  uid: d0849c95-2942-4715-9d3a-af0007983b14
+
+==================== 证据 G：调度器日志里这次冒烟的调度痕迹 ====================
+I1005 10:50:31.102936       1 session.go:1039] Start adjusting jobs' network topology spec according to hyperNodeTierNameMap map[]
+I1005 10:50:31.102948       1 session.go:1082] Finish adjusting jobs' network topology spec according to hyperNodeTierNameMap map[]
+I1005 10:50:31.102958       1 session.go:279] Open Session c1f9ec06-3b18-4055-aec7-9efced5fc915 with <1> Job and <3> Queues. HyperNodesReadyToSchedule: true
+I1005 10:50:31.103376       1 enqueue.go:79] Try to enqueue PodGroup to 0 Queues
+I1005 10:50:31.103421       1 allocate.go:138] Try to allocate resource to 0 Queues
+I1005 10:50:31.112038       1 session.go:577] Close Session c1f9ec06-3b18-4055-aec7-9efced5fc915
+I1005 10:50:32.112910       1 cache.go:1581] "SnapShot for scheduling" jobNum=1 QueueNum=3 NodeNum=3
+I1005 10:50:32.113009       1 session.go:1039] Start adjusting jobs' network topology spec according to hyperNodeTierNameMap map[]
+I1005 10:50:32.113054       1 session.go:1082] Finish adjusting jobs' network topology spec according to hyperNodeTierNameMap map[]
+I1005 10:50:32.113077       1 session.go:279] Open Session c0f44091-a558-4627-a21f-a01915d51def with <1> Job and <3> Queues. HyperNodesReadyToSchedule: true
+I1005 10:50:32.113958       1 enqueue.go:79] Try to enqueue PodGroup to 0 Queues
+I1005 10:50:32.114018       1 allocate.go:138] Try to allocate resource to 0 Queues
+I1005 10:50:32.114217       1 session.go:577] Close Session c0f44091-a558-4627-a21f-a01915d51def
+I1005 10:50:33.115206       1 cache.go:1581] "SnapShot for scheduling" jobNum=1 QueueNum=3 NodeNum=3
+I1005 10:50:33.115237       1 session.go:1039] Start adjusting jobs' network topology spec according to hyperNodeTierNameMap map[]
+I1005 10:50:33.115246       1 session.go:1082] Finish adjusting jobs' network topology spec according to hyperNodeTierNameMap map[]
+I1005 10:50:33.115256       1 session.go:279] Open Session bb59e6ec-8979-4aa7-bc53-50441ba0eedc with <1> Job and <3> Queues. HyperNodesReadyToSchedule: true
+I1005 10:50:33.115640       1 enqueue.go:79] Try to enqueue PodGroup to 0 Queues
+I1005 10:50:33.115689       1 allocate.go:138] Try to allocate resource to 0 Queues
+I1005 10:50:33.115864       1 session.go:577] Close Session bb59e6ec-8979-4aa7-bc53-50441ba0eedc
+
+==================== 收尾 ====================
+volcano-lab
+volcano-lab-worker	kindest/node:v1.27.16
+volcano-lab-worker2	kindest/node:v1.27.16
+volcano-lab-control-plane	kindest/node:v1.27.16
+
+==================== 完成时间 ====================
+Mon Oct  5 18:50:34 CST 2026
+
+==================== 证据 D（补）：vc-controller-manager 的架构 + docker server 版本 ====================
+vc-controller-manager: docker server: 29.1.3 / arm64
+
+==================== 证据 E（补）：PodGroup 与队列（冒烟作业的 gang 单元） ====================
+No resources found
+NAME         PARENT
+default      root
+root         
+smoke-test   root
+Completed	/2
+
+==================== 证据 G（补）：镜像拉取事件（节点里走的是哪条路径） ====================
+2m59s       Normal    Pulling             pod/volcano-admission-6d967ff9f8-qmx57      Pulling image "docker.io/volcanosh/vc-webhook-manager:v1.15.3"
+2m59s       Normal    Pulling             pod/volcano-controllers-5d98d667cb-vzg9t    Pulling image "docker.io/volcanosh/vc-controller-manager:v1.15.3"
+2m58s       Normal    Pulling             pod/volcano-scheduler-5669c6b7d9-mc9bw      Pulling image "docker.io/volcanosh/vc-scheduler:v1.15.3"
+2m35s       Normal    Pulled              pod/volcano-scheduler-5669c6b7d9-mc9bw      Successfully pulled image "docker.io/volcanosh/vc-scheduler:v1.15.3" in 22.705946593s (22.705954926s including waiting)
+2m34s       Normal    Pulled              pod/volcano-admission-6d967ff9f8-qmx57      Successfully pulled image "docker.io/volcanosh/vc-webhook-manager:v1.15.3" in 24.797615719s (24.797680052s including waiting)
+2m15s       Normal    Pulled              pod/volcano-controllers-5d98d667cb-vzg9t    Successfully pulled image "docker.io/volcanosh/vc-controller-manager:v1.15.3" in 19.824792093s (44.614459937s including waiting)
+
+==================== 证据 H：kubectl skew 警告原文（已知代价，不是故障） ====================
+Server Version: v1.27.16
+Warning: version difference between client (1.35) and server (1.27) exceeds the supported minor version skew of +/-1
+
+==================== 证据 D（补2）：在实际运行该镜像的节点上查架构 ====================
+vc-controller-manager @volcano-lab-worker:       "architecture": "arm64",
+vc-webhook-manager   @volcano-lab-worker:       "architecture": "arm64",
+
+==================== 证据 E（补2）：作业运行期间 PodGroup 是否存在（上一轮查不到是因为作业已 Completed） ====================
+NAMESPACE   NAME                                                  STATUS    MINMEMBER   RUNNINGS   AGE
+default     podgroup-probe-368fbef0-599c-425d-8d57-b79f157f63e0   Running   1           1          12s
+default/podgroup-probe-368fbef0-599c-425d-8d57-b79f157f63e0	minMember=1	phase=Running	running=1
+NAME                      STATUS    NODE                  SCHEDULER
+podgroup-probe-worker-0   Running   volcano-lab-worker2   volcano
+
+==================== 收尾：清理冒烟与探针资源（集群保留） ====================
+job.batch.volcano.sh "smoke-test-job" deleted from default namespace
+job.batch.volcano.sh "podgroup-probe" deleted from default namespace
+queue.scheduling.volcano.sh "smoke-test" deleted
+--- 清理后 ---
+NAMESPACE   NAME                                  PARENT
+            queue.scheduling.volcano.sh/default   root
+            queue.scheduling.volcano.sh/root      
+kube-system          kube-scheduler-volcano-lab-control-plane            1/1     Running       0          4m57s
+local-path-storage   local-path-provisioner-7b4b5dbf54-688js             1/1     Running       0          4m42s
+volcano-system       volcano-admission-6d967ff9f8-qmx57                  1/1     Running       0          3m22s
+volcano-system       volcano-controllers-5d98d667cb-vzg9t                1/1     Running       0          3m22s
+volcano-system       volcano-scheduler-5669c6b7d9-mc9bw                  1/1     Running       0          3m22s

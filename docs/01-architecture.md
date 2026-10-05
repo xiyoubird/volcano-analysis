@@ -213,6 +213,6 @@ tiers:
 | 事项 | 结论 | 依据 |
 | --- | --- | --- |
 | 代码基线 | v1.15.3 / `d2dd7024f4af3070f9d99d68a78973893908a743` | [ADR-0001](adr/0001-pin-baseline-version.md) |
-| Kubernetes 版本 | 待定 | [baseline.md §3.1](../baseline.md) |
+| Kubernetes 版本 | **1.27.16**（`kindest/node:v1.27.16`） | [baseline.md §3.1](../baseline.md) · [ADR-0005](adr/0005-k8s-127-baseline.md) |
 | 架构图的画法 | 用 mermaid 源码提交，导出图放各自 `assets/` | [CONTRIBUTING.md](../CONTRIBUTING.md) |
 | 性能指标定义 | 待定（需要一份 ADR） | — |
