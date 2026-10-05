@@ -1,6 +1,6 @@
 name: 李鹏飞
 github: xiyoubird
-title: 待认领 —— 请从上表挑一个模块并写清你要回答的问题
-module: 
+title: pkg/scheduler/ 的调度循环与 Session 管理如何构成核心调度流程？
+module: pkg/scheduler/
 status: 规划中
 updated: 2026-10-05
