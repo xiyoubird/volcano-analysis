@@ -1,0 +1,35 @@
+apiVersion: scheduling.volcano.sh/v1beta1
+kind: Queue
+metadata:
+  name: exp-queue-fail
+spec:
+  weight: 1
+  capability:
+    cpu: "40"
+    memory: 40Gi
+---
+apiVersion: batch.volcano.sh/v1alpha1
+kind: Job
+metadata:
+  name: exp-fail
+spec:
+  # 集群共 3 节点 × 10 CPU = 30 CPU；每个 task 要 8 CPU，最多放得下 3 个。
+  # minAvailable=4 ⇒ gang 永远凑不齐 ⇒ allocate 必须放弃整组。
+  minAvailable: 4
+  schedulerName: volcano
+  queue: exp-queue-fail
+  tasks:
+    - replicas: 4
+      name: worker
+      template:
+        spec:
+          containers:
+            - name: worker
+              image: busybox:1.36
+              command: ["sh", "-c", "echo fail-path-should-never-run && sleep 60"]
+              resources:
+                requests:
+                  cpu: 8
+                  memory: 128Mi
+              imagePullPolicy: IfNotPresent
+          restartPolicy: Never

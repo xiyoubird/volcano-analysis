@@ -1,0 +1,36 @@
+apiVersion: scheduling.volcano.sh/v1beta1
+kind: Queue
+metadata:
+  name: exp-queue-rollback
+spec:
+  # 不设 capability。注意：即便如此 realCapability 仍会被算成集群富余量（见报告 §6.1 第 3 条）。
+  weight: 1
+---
+apiVersion: batch.volcano.sh/v1alpha1
+kind: Job
+metadata:
+  name: exp-rollback
+spec:
+  # minRequired = 2 × 8 CPU = 16 CPU ≤ 集群富余(≈30 CPU) ⇒ 能过 enqueue 这道门，
+  # Pod 会被真正创建。但 nodeSelector 只圈定 1 个节点(≈9.5 CPU 空闲)，
+  # 放得下 1 个 task、放不下第 2 个 ⇒ gang 凑不齐 ⇒ allocate 必须 Discard 整组。
+  minAvailable: 2
+  schedulerName: volcano
+  queue: exp-queue-rollback
+  tasks:
+    - replicas: 2
+      name: worker
+      template:
+        spec:
+          nodeSelector:
+            kubernetes.io/hostname: volcano-lab-worker
+          containers:
+            - name: worker
+              image: busybox:1.36
+              command: ["sh", "-c", "echo rollback-path-should-never-run && sleep 60"]
+              resources:
+                requests:
+                  cpu: 8
+                  memory: 128Mi
+              imagePullPolicy: IfNotPresent
+          restartPolicy: Never

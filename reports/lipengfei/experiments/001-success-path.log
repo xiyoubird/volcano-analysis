@@ -1,0 +1,81 @@
+### 实验001 成功路径 — 原始输出 2026-10-05 19:02:23
+
+## git HEAD
+d2dd7024f4af3070f9d99d68a78973893908a743
+
+## Pod 落地情况（spec.nodeName 已写回 = 绑定成功）
+NAME                   READY   STATUS    RESTARTS   AGE   IP           NODE                  NOMINATED NODE   READINESS GATES
+exp-success-worker-0   1/1     Running   0          24s   10.244.1.7   volcano-lab-worker2   <none>           <none>
+exp-success-worker-1   1/1     Running   0          24s   10.244.2.4   volcano-lab-worker    <none>           <none>
+
+## Pod 的 nodeName 字段
+exp-success-worker-0	volcano	volcano-lab-worker2
+exp-success-worker-1	volcano	volcano-lab-worker
+
+## PodGroup 状态
+NAME                                               PHASE     MINMEMBER   RUNNING
+exp-success-d197da68-3d77-4fd6-a5ce-997a7bd932b0   Running   2           2
+
+## vcjob 状态
+{"conditions":[{"lastTransitionTime":"2026-10-05T11:02:01Z","status":"Pending"},{"lastTransitionTime":"2026-10-05T11:02:18Z","status":"Running"}],"minAvailable":2,"running":2,"state":{"lastTransitionTime":"2026-10-05T11:02:18Z","phase":"Running"},"taskStatusCount":{"worker":{"phase":{"Running":2}}}}
+## scheduler 日志（成功路径窗口，-v=3）
+$ kubectl -n volcano-system logs deploy/volcano-scheduler --since=3m | grep -E "Open Session|Close Session|exp-success" | tail -40
+I1005 11:02:06.796246       1 session.go:279] Open Session 530ab83c-c2e4-477c-b003-ec9a2e6e6414 with <1> Job and <3> Queues. HyperNodesReadyToSchedule: true
+I1005 11:02:06.797305       1 session.go:577] Close Session 530ab83c-c2e4-477c-b003-ec9a2e6e6414
+I1005 11:02:07.797797       1 session.go:279] Open Session 283f2d08-2758-4e4e-bd09-5fc620514575 with <1> Job and <3> Queues. HyperNodesReadyToSchedule: true
+I1005 11:02:07.798759       1 session.go:577] Close Session 283f2d08-2758-4e4e-bd09-5fc620514575
+I1005 11:02:08.800852       1 session.go:279] Open Session 46bdf9b3-1215-4f06-abcd-836ba4f82719 with <1> Job and <3> Queues. HyperNodesReadyToSchedule: true
+I1005 11:02:08.803582       1 session.go:577] Close Session 46bdf9b3-1215-4f06-abcd-836ba4f82719
+I1005 11:02:09.806509       1 session.go:279] Open Session fe4a0409-a099-40c8-a957-841fc0dfb13e with <1> Job and <3> Queues. HyperNodesReadyToSchedule: true
+I1005 11:02:09.807366       1 session.go:577] Close Session fe4a0409-a099-40c8-a957-841fc0dfb13e
+I1005 11:02:10.812409       1 session.go:279] Open Session bbe37ba9-f7e8-4148-9a45-a0adc89367c5 with <1> Job and <3> Queues. HyperNodesReadyToSchedule: true
+I1005 11:02:10.813488       1 session.go:577] Close Session bbe37ba9-f7e8-4148-9a45-a0adc89367c5
+I1005 11:02:11.815424       1 session.go:279] Open Session 6c4ad229-6d63-4c0d-adcb-38e5eb5c2e1e with <1> Job and <3> Queues. HyperNodesReadyToSchedule: true
+I1005 11:02:11.815762       1 session.go:577] Close Session 6c4ad229-6d63-4c0d-adcb-38e5eb5c2e1e
+I1005 11:02:12.816597       1 session.go:279] Open Session 9fe52f4e-5916-4f58-9fbf-b1ee46c64be8 with <1> Job and <3> Queues. HyperNodesReadyToSchedule: true
+I1005 11:02:12.816873       1 session.go:577] Close Session 9fe52f4e-5916-4f58-9fbf-b1ee46c64be8
+I1005 11:02:13.822788       1 session.go:279] Open Session 0b31aa19-e4df-4215-9c92-20f6090efd2d with <1> Job and <3> Queues. HyperNodesReadyToSchedule: true
+I1005 11:02:13.823125       1 session.go:577] Close Session 0b31aa19-e4df-4215-9c92-20f6090efd2d
+I1005 11:02:14.823881       1 session.go:279] Open Session 9f506e28-9270-4f96-bd43-46a8a6e53317 with <1> Job and <3> Queues. HyperNodesReadyToSchedule: true
+I1005 11:02:14.824905       1 session.go:577] Close Session 9f506e28-9270-4f96-bd43-46a8a6e53317
+I1005 11:02:15.825403       1 session.go:279] Open Session d1cd3c5d-8fd8-4c52-a2a4-5e404e0f6029 with <1> Job and <3> Queues. HyperNodesReadyToSchedule: true
+I1005 11:02:15.826505       1 session.go:577] Close Session d1cd3c5d-8fd8-4c52-a2a4-5e404e0f6029
+I1005 11:02:16.827498       1 session.go:279] Open Session a5a28345-6043-4774-8c05-44c34f585fec with <1> Job and <3> Queues. HyperNodesReadyToSchedule: true
+I1005 11:02:16.828484       1 session.go:577] Close Session a5a28345-6043-4774-8c05-44c34f585fec
+I1005 11:02:17.829230       1 session.go:279] Open Session afdee7e9-6dc8-48eb-ab8c-fc2154e9449f with <1> Job and <3> Queues. HyperNodesReadyToSchedule: true
+I1005 11:02:17.830494       1 session.go:577] Close Session afdee7e9-6dc8-48eb-ab8c-fc2154e9449f
+I1005 11:02:18.831200       1 session.go:279] Open Session 2680c11d-64be-4c1c-abe6-4a884ec90563 with <1> Job and <3> Queues. HyperNodesReadyToSchedule: true
+I1005 11:02:18.837764       1 session.go:577] Close Session 2680c11d-64be-4c1c-abe6-4a884ec90563
+I1005 11:02:19.840008       1 session.go:279] Open Session 31bce688-370d-4d09-90d6-89835ed981d4 with <1> Job and <3> Queues. HyperNodesReadyToSchedule: true
+I1005 11:02:19.840803       1 session.go:577] Close Session 31bce688-370d-4d09-90d6-89835ed981d4
+I1005 11:02:20.842383       1 session.go:279] Open Session 46401b14-dbcc-4a51-b974-8e51abe26d1e with <1> Job and <3> Queues. HyperNodesReadyToSchedule: true
+I1005 11:02:20.843490       1 session.go:577] Close Session 46401b14-dbcc-4a51-b974-8e51abe26d1e
+I1005 11:02:21.844525       1 session.go:279] Open Session 9673b7af-b1b5-42f8-b10f-67ab4b0d9795 with <1> Job and <3> Queues. HyperNodesReadyToSchedule: true
+I1005 11:02:21.845289       1 session.go:577] Close Session 9673b7af-b1b5-42f8-b10f-67ab4b0d9795
+I1005 11:02:22.845627       1 session.go:279] Open Session 843d0771-c08a-42f9-bb6e-b900f4620634 with <1> Job and <3> Queues. HyperNodesReadyToSchedule: true
+I1005 11:02:22.845955       1 session.go:577] Close Session 843d0771-c08a-42f9-bb6e-b900f4620634
+I1005 11:02:23.848317       1 session.go:279] Open Session 953fbd45-8f9c-4a19-8a22-590979f0b57e with <1> Job and <3> Queues. HyperNodesReadyToSchedule: true
+I1005 11:02:23.849043       1 session.go:577] Close Session 953fbd45-8f9c-4a19-8a22-590979f0b57e
+I1005 11:02:24.849963       1 session.go:279] Open Session d78bbc30-5ea2-43a0-bc69-b15db7d4de7c with <1> Job and <3> Queues. HyperNodesReadyToSchedule: true
+I1005 11:02:24.850820       1 session.go:577] Close Session d78bbc30-5ea2-43a0-bc69-b15db7d4de7c
+I1005 11:02:25.851657       1 session.go:279] Open Session 22be5cf3-4ed3-4b0a-8167-2f63083e6138 with <1> Job and <3> Queues. HyperNodesReadyToSchedule: true
+I1005 11:02:25.852078       1 session.go:577] Close Session 22be5cf3-4ed3-4b0a-8167-2f63083e6138
+
+## 绑定写回的关键日志（V(3)：After allocated Task）
+$ kubectl -n volcano-system logs deploy/volcano-scheduler --since=5m | grep "allocated Task"
+I1005 11:02:00.752629       1 statement.go:277] After allocated Task <default/exp-success-worker-0> to Node <volcano-lab-worker2>: idle <cpu 9400.00, memory 8030801920.00, ephemeral-storage 977896124416000.00, hugepages-1Gi 0.00, hugepages-2Mi 0.00, hugepages-32Mi 0.00, hugepages-64Ki 0.00, pods 106.00>, used <cpu 600.00, memory 186646528.00, pods 4.00>, releasing <cpu 0.00, memory 0.00>
+I1005 11:02:00.753155       1 statement.go:277] After allocated Task <default/exp-success-worker-1> to Node <volcano-lab-worker>: idle <cpu 9400.00, memory 8030801920.00, ephemeral-storage 977896124416000.00, hugepages-1Gi 0.00, hugepages-2Mi 0.00, hugepages-32Mi 0.00, hugepages-64Ki 0.00, pods 105.00>, used <cpu 600.00, memory 186646528.00, pods 5.00>, releasing <cpu 0.00, memory 0.00>
+
+## 会话周期实测：相邻两次 Open Session 的时间差
+10:57:34.154050
+10:57:35.156063
+10:57:36.158144
+10:57:37.161316
+10:57:38.163617
+10:57:39.165638
+10:57:40.166677
+10:57:41.168216
+10:57:42.169091
+10:57:43.170932
+10:57:44.173105
+10:57:45.174711

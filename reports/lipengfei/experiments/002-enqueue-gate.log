@@ -1,0 +1,33 @@
+### 实验002 enqueue 门控失败 — 原始输出 2026-10-05 19:11:19
+
+## git HEAD
+d2dd7024f4af3070f9d99d68a78973893908a743
+
+## 前置：Queue 先建，确认 state=Open 后才提交 Job
+queue=exp-queue-fail state=Open capability={"cpu":"40","memory":"40Gi"}
+
+## 40s 后：vcjob 仍 Pending，PodGroup 仍 Pending，Pod 数 0
+NAME       STATUS    MINAVAILABLE   RUNNINGS   AGE
+exp-fail   Pending   4                         45s
+NAMESPACE   NAME                                            STATUS    MINMEMBER   RUNNINGS   AGE
+default     exp-fail-5eeb1767-d4ba-4c22-8893-9360f80000f2   Pending   4                      46s
+$ kubectl get pods -n default -o wide
+No resources found in default namespace.       ← 关键：一个 Pod 都没有
+
+## 事件（关键：queue resource quota insufficient）
+default              7m36s       Warning   Unschedulable             podgroup/exp-fail-fa4ed673-7ce7-4d5d-b7ec-8df1c1cffe01         0/0 tasks in gang unschedulable: pod group is not ready, 4 minAvailable
+default              7m36s       Normal    Unschedulable             podgroup/exp-fail-fa4ed673-7ce7-4d5d-b7ec-8df1c1cffe01         queue resource quota insufficient: insufficient cpu
+default              22s         Warning   Unschedulable             podgroup/exp-fail-5eeb1767-d4ba-4c22-8893-9360f80000f2         0/0 tasks in gang unschedulable: pod group is not ready, 4 minAvailable
+default              22s         Normal    Unschedulable             podgroup/exp-fail-5eeb1767-d4ba-4c22-8893-9360f80000f2         queue resource quota insufficient: insufficient cpu
+
+## 调度器日志：完全为空 —— 调度器从未看到这个作业
+$ kubectl -n volcano-system logs deploy/volcano-scheduler --since=3m | grep exp-fail
+0
+(0 = 一次都没出现)
+
+## 控制器日志：反复 SyncJob 但不建 Pod
+$ kubectl -n volcano-system logs deploy/volcano-controllers --since=3m | grep exp-fail | tail -4
+I1005 11:10:34.335954       1 job_controller_actions.go:346] Starting to sync up Job <default/exp-fail>, current version 0
+I1005 11:10:34.335970       1 job_controller_actions.go:287] Starting to initiate Job <default/exp-fail>
+I1005 11:10:34.336019       1 job_controller_actions.go:421] Job <default/exp-fail> has not updated for no changing
+I1005 11:10:34.336025       1 job_controller_actions.go:626] Finished Job <default/exp-fail> sync up, current version 0

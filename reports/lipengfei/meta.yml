@@ -1,6 +1,6 @@
 name: 李鹏飞
 github: xiyoubird
-title: pkg/scheduler/ 的调度循环与 Session 管理如何构成核心调度流程？
-module: pkg/scheduler/
-status: 规划中
+title: 调度周期由什么触发？Session 在 open…close 之间如何把决策写回 etcd？未绑定的 Job 去了哪里？
+module: pkg/scheduler/framework/
+status: 进行中
 updated: 2026-10-05

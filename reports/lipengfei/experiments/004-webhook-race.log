@@ -1,0 +1,17 @@
+### 实验004 admission webhook 竞态 — 原始输出 2026-10-05 19:10:09
+
+## 现象：同一个文件里同时 apply Queue 与 Job
+$ kubectl apply -f 002-enqueue-gate.yaml
+queue.scheduling.volcano.sh/exp-queue-fail created
+Error from server: error when creating "002-enqueue-gate.yaml": admission webhook "validatejob.volcano.sh" denied the request: can only submit job to queue with state `Open`, queue `exp-queue-fail` status is ``;
+
+## 复现性验证：删掉 queue 后单独重建，再立刻提交 job
+queue.scheduling.volcano.sh/race-probe created
+job.batch.volcano.sh/race-probe-job created
+
+## 复现率量化（连续 8 次，每次新建 Queue+Job 同文件提交）
+结果：webhook 拒绝 7 / 通过 1（共 8 次）＝ 复现率 87.5%
+
+## 代码位置（B 级）
+pkg/webhooks/admission/jobs/validate/admit_job.go:206
+  msg += fmt.Sprintf(" can only submit job to queue with state \`Open\`, "...)

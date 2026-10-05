@@ -96,7 +96,7 @@
 
 | 组员 | 主题 | 模块 | 状态 | 运行记录 | 最后更新 | 报告 |
 | --- | --- | --- | --- | ---: | --- | --- |
-| 李鹏飞 (@xiyoubird) | 待认领 —— 请从上表挑一个模块并写清你要回答的问题 | `—` | 规划中 | 0 | 2026-10-05 | [lipengfei](reports/lipengfei/report.md) |
+| 李鹏飞 (@xiyoubird) | 调度周期由什么触发？Session 在 open…close 之间如何把决策写回 etcd？未绑定的 Job 去了哪里？ | `pkg/scheduler/framework/` | 进行中 | 4 | 2026-10-05 | [lipengfei](reports/lipengfei/report.md) |
 | 谈宁远 | 待认领 —— 请从上表挑一个模块并写清你要回答的问题 | `—` | 规划中 | 0 | 2026-10-05 | [tanninyuan](reports/tanninyuan/report.md) |
 | 童天宇 | 待认领 —— 请从上表挑一个模块并写清你要回答的问题 | `—` | 规划中 | 0 | 2026-10-05 | [tongtianyu](reports/tongtianyu/report.md) |
 | 颜秉丽 | 待认领 —— 请从上表挑一个模块并写清你要回答的问题 | `—` | 规划中 | 0 | 2026-10-05 | [yanbingli](reports/yanbingli/report.md) |
@@ -104,9 +104,9 @@
 
 共 5 人。状态说明：进行中 → 待评审 → 已完成；`规划中` 表示尚未开始。
 
-**模块覆盖**：已认领 **0 / 21** 个模块。
+**模块覆盖**：已认领 **1 / 21** 个模块。
 
-未被认领的模块（组长兜底清单的来源）：`pkg/scheduler/`、`pkg/scheduler/actions/`、`pkg/scheduler/plugins/`、`pkg/scheduler/framework/`、`pkg/scheduler/cache/`、`pkg/scheduler/api/`、`pkg/scheduler/conf/`、`pkg/scheduler/metrics/`、`pkg/scheduler/unschedulable/`、`pkg/scheduler/gate/`、`pkg/controllers/`、`pkg/webhooks/admission/`、`pkg/cli/`、`pkg/agent/`、`pkg/agentscheduler/`、`pkg/networkqos/`、`pkg/metriccollect/`、`pkg/resourceusage/`、`pkg/kube/`、`pkg/util/`、`pkg/config/`、`pkg/features/`、`pkg/filewatcher/`、`pkg/signals/`、`pkg/version/`、`cmd/`、`installer/`、`test/e2e/`、`benchmark/`
+未被认领的模块（组长兜底清单的来源）：`pkg/scheduler/`、`pkg/scheduler/actions/`、`pkg/scheduler/plugins/`、`pkg/scheduler/cache/`、`pkg/scheduler/api/`、`pkg/scheduler/conf/`、`pkg/scheduler/metrics/`、`pkg/scheduler/unschedulable/`、`pkg/scheduler/gate/`、`pkg/controllers/`、`pkg/webhooks/admission/`、`pkg/cli/`、`pkg/agent/`、`pkg/agentscheduler/`、`pkg/networkqos/`、`pkg/metriccollect/`、`pkg/resourceusage/`、`pkg/kube/`、`pkg/util/`、`pkg/config/`、`pkg/features/`、`pkg/filewatcher/`、`pkg/signals/`、`pkg/version/`、`cmd/`、`installer/`、`test/e2e/`、`benchmark/`
 
 <details><summary>展开完整覆盖情况</summary>
 
@@ -115,7 +115,7 @@
 | `pkg/scheduler/` | — |
 | `pkg/scheduler/actions/` | — |
 | `pkg/scheduler/plugins/` | — |
-| `pkg/scheduler/framework/` | — |
+| `pkg/scheduler/framework/` | 李鹏飞 |
 | `pkg/scheduler/cache/` | — |
 | `pkg/scheduler/api/` | — |
 | `pkg/scheduler/conf/` | — |

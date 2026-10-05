@@ -1,0 +1,33 @@
+apiVersion: scheduling.volcano.sh/v1beta1
+kind: Queue
+metadata:
+  name: exp-queue
+spec:
+  weight: 1
+  capability:
+    cpu: "4"
+    memory: 4Gi
+---
+apiVersion: batch.volcano.sh/v1alpha1
+kind: Job
+metadata:
+  name: exp-success
+spec:
+  minAvailable: 2
+  schedulerName: volcano
+  queue: exp-queue
+  tasks:
+    - replicas: 2
+      name: worker
+      template:
+        spec:
+          containers:
+            - name: worker
+              image: busybox:1.36
+              command: ["sh", "-c", "echo success-path-ok && sleep 60"]
+              resources:
+                requests:
+                  cpu: 500m
+                  memory: 128Mi
+              imagePullPolicy: IfNotPresent
+          restartPolicy: Never

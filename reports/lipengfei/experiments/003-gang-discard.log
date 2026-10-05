@@ -1,0 +1,52 @@
+### 实验004 gang 回滚 — 原始输出 2026-10-05 19:08:53
+
+## git HEAD
+d2dd7024f4af3070f9d99d68a78973893908a743
+
+## Pod 状态（存在 但全 Pending，spec.nodeName 为空）
+NAME                    READY   STATUS    RESTARTS   AGE   IP       NODE     NOMINATED NODE   READINESS GATES
+exp-rollback-worker-0   0/1     Pending   0          78s   <none>   <none>   <none>           <none>
+exp-rollback-worker-1   0/1     Pending   0          78s   <none>   <none>   <none>           <none>
+
+## nodeName / schedulerName
+exp-rollback-worker-0	scheduler=volcano	node=
+exp-rollback-worker-1	scheduler=volcano	node=
+
+## PodGroup 状态
+NAMESPACE   NAME                                                STATUS    MINMEMBER   RUNNINGS   AGE
+default     exp-rollback-bc91e44f-45fa-4844-b628-c9111c3dd3cc   Inqueue   2                      79s
+
+## 事件
+default              78s         Warning   Unschedulable             podgroup/exp-rollback-bc91e44f-45fa-4844-b628-c9111c3dd3cc     0/0 tasks in gang unschedulable: pod group is not ready, 2 minAvailable
+default              77s         Warning   FailedScheduling          pod/exp-rollback-worker-0                                      Pod default/exp-rollback-worker-0 can possibly be assigned to volcano-lab-worker, once minAvailable is satisfied
+default              77s         Warning   FailedScheduling          pod/exp-rollback-worker-1                                      0/3 nodes are unavailable: 1 Insufficient cpu, 2 node(s) didn't match Pod's node affinity/selector.
+default              77s         Warning   PodGroupPending           job/exp-rollback                                               PodGroup default:exp-rollback unschedulable, reason: 1/2 tasks in gang unschedulable: pod group is not ready, 2 Pending, 2 minAvailable; Pending: 1 Schedulable, 1 Unschedulable. Origin reason is exp-rollback-worker-1: 0/3 nodes are unavailable: 1 Insufficient cpu, 2 node(s) didn't match Pod's node affinity/selector.
+default              54s         Warning   Unschedulable             podgroup/exp-rollback-bc91e44f-45fa-4844-b628-c9111c3dd3cc     2/2 tasks in gang unschedulable: pod group is not ready, 2 Pending, 2 minAvailable; Pending: 1 Schedulable, 1 Unschedulable. Origin reason is exp-rollback-worker-1: 0/3 nodes are unavailable: 1 Insufficient cpu, 2 node(s) didn't match Pod's node affinity/selector.
+
+## scheduler 日志（-v=3，exp-rollback 相关）
+$ kubectl -n volcano-system logs deploy/volcano-scheduler --since=4m | grep -E "exp-rollback|Discard|Pipelined"
+I1005 11:07:36.703051       1 event_handlers.go:445] Added pod <default/exp-rollback-worker-0> into cache.
+I1005 11:07:36.703500       1 event_handlers.go:445] Added pod <default/exp-rollback-worker-1> into cache.
+I1005 11:07:37.703518       1 allocate.go:328] "Try to allocate resource" queue="exp-queue-rollback" job="default/exp-rollback-bc91e44f-45fa-4844-b628-c9111c3dd3cc" nominatedHyperNode="" taskNum=2
+I1005 11:07:37.703549       1 allocate.go:777] There are <3> nodes for Job <default/exp-rollback-bc91e44f-45fa-4844-b628-c9111c3dd3cc>
+I1005 11:07:37.704056       1 predicate_helper.go:115] Predicates failed: task default/exp-rollback-worker-0 on node volcano-lab-control-plane fit failed: node(s) didn't match Pod's node affinity/selector
+I1005 11:07:37.704082       1 predicate_helper.go:115] Predicates failed: task default/exp-rollback-worker-0 on node volcano-lab-worker2 fit failed: node(s) didn't match Pod's node affinity/selector
+I1005 11:07:37.704106       1 allocate.go:956] Binding Task <default/exp-rollback-worker-0> to node <volcano-lab-worker>
+I1005 11:07:37.704132       1 statement.go:277] After allocated Task <default/exp-rollback-worker-0> to Node <volcano-lab-worker>: idle <cpu 1900.00, memory 8030801920.00, ephemeral-storage 977896124416000.00, hugepages-1Gi 0.00, hugepages-2Mi 0.00, hugepages-32Mi 0.00, hugepages-64Ki 0.00, pods 105.00>, used <cpu 8100.00, memory 186646528.00, pods 5.00>, releasing <cpu 0.00, memory 0.00>
+I1005 11:07:37.704374       1 allocate.go:777] There are <3> nodes for Job <default/exp-rollback-bc91e44f-45fa-4844-b628-c9111c3dd3cc>
+I1005 11:07:37.704448       1 predicate_helper.go:115] Predicates failed: task default/exp-rollback-worker-1 on node volcano-lab-worker fit failed: Insufficient cpu
+I1005 11:07:37.704499       1 statement.go:366] Discarding operations ...
+I1005 11:07:37.704517       1 statement.go:347] Remove Task <exp-rollback-worker-0> on node <volcano-lab-worker>
+I1005 11:07:37.713279       1 cache.go:1101] Updating pod condition for default/exp-rollback-worker-0 to (PodScheduled==False)
+I1005 11:07:37.713364       1 cache.go:1101] Updating pod condition for default/exp-rollback-worker-1 to (PodScheduled==False)
+I1005 11:07:38.727690       1 allocate.go:328] "Try to allocate resource" queue="exp-queue-rollback" job="default/exp-rollback-bc91e44f-45fa-4844-b628-c9111c3dd3cc" nominatedHyperNode="" taskNum=2
+I1005 11:07:38.727719       1 allocate.go:777] There are <3> nodes for Job <default/exp-rollback-bc91e44f-45fa-4844-b628-c9111c3dd3cc>
+I1005 11:07:38.727856       1 predicate_helper.go:115] Predicates failed: task default/exp-rollback-worker-0 on node volcano-lab-control-plane fit failed: node(s) didn't match Pod's node affinity/selector
+I1005 11:07:38.727905       1 predicate_helper.go:115] Predicates failed: task default/exp-rollback-worker-0 on node volcano-lab-worker2 fit failed: node(s) didn't match Pod's node affinity/selector
+I1005 11:07:38.727923       1 allocate.go:956] Binding Task <default/exp-rollback-worker-0> to node <volcano-lab-worker>
+I1005 11:07:38.727950       1 statement.go:277] After allocated Task <default/exp-rollback-worker-0> to Node <volcano-lab-worker>: idle <cpu 1900.00, memory 8030801920.00, ephemeral-storage 977896124416000.00, hugepages-1Gi 0.00, hugepages-2Mi 0.00, hugepages-32Mi 0.00, hugepages-64Ki 0.00, pods 105.00>, used <cpu 8100.00, memory 186646528.00, pods 5.00>, releasing <cpu 0.00, memory 0.00>
+I1005 11:07:38.728141       1 allocate.go:777] There are <3> nodes for Job <default/exp-rollback-bc91e44f-45fa-4844-b628-c9111c3dd3cc>
+I1005 11:07:38.728231       1 predicate_helper.go:115] Predicates failed: task default/exp-rollback-worker-1 on node volcano-lab-worker fit failed: Insufficient cpu
+I1005 11:07:38.728351       1 statement.go:366] Discarding operations ...
+I1005 11:07:38.728385       1 statement.go:347] Remove Task <exp-rollback-worker-0> on node <volcano-lab-worker>
+I1005 11:07:39.730924       1 allocate.go:328] "Try to allocate resource" queue="exp-queue-rollback" job="default/exp-rollback-bc91e44f-45fa-4844-b628-c9111c3dd3cc" nominatedHyperNode="" taskNum=2
