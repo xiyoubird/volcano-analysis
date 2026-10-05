@@ -87,15 +87,18 @@
 
 ### 2.1 根目录地图
 
+<!-- 画图注意：mermaid 代码块里**不要写 HTML 注释**（会被当成图上的文字，甚至会整张图解析失败），
+     提示统一写在本注释里。行号写成 `file.go L123`，不要写 `file.go:123`。 -->
+
 ```mermaid
 flowchart TD
     ROOT["volcano/"]
-    ROOT --> B["<!-- 构建：Makefile / go.mod -->"]
-    ROOT --> C["<!-- 入口：cmd/ -->"]
-    ROOT --> P["<!-- 业务代码：pkg/ -->"]
-    ROOT --> T["<!-- 测试：test/ 、*_test.go -->"]
-    ROOT --> I["<!-- 部署：installer/ -->"]
-    ROOT --> D["<!-- 文档：docs/ -->"]
+    ROOT --> B["构建：Makefile / go.mod"]
+    ROOT --> C["入口：cmd/"]
+    ROOT --> P["业务代码：pkg/"]
+    ROOT --> T["测试：test/ 、*_test.go"]
+    ROOT --> I["部署：installer/"]
+    ROOT --> D["文档：docs/"]
 ```
 
 | 区域 | 是什么 | 为什么值得先看 | 我的验证位置 |
@@ -154,10 +157,17 @@ flowchart TD
 
 ### 3.2 领域对象图
 
+<!-- 画图规则（这几条都是实际踩过的坑，照做能少返工）：
+     1. 关系标签里**不要写英文冒号**。`JobInfo --> PodGroupInfo : 关联 job_info.go:88`
+        会让整张图解析失败（错误信息形如 `Parse error on line N ... got 'LABEL'`）。
+        行号写成 `job_info.go L88`；需要精确的 `file.go:88` 时，放到下面的图注表里写。
+     2. mermaid 代码块内**不能写 HTML 注释**，类体里的字段待填项也要用普通文字。
+     3. 类体字段写法：`+UID types.UID`、`-ssn *Session`（`+` 公开 / `-` 私有）。
+     4. 接口实现用 `..|>`；Go 没有 extends，记得在图注里说明这是隐式实现。 -->
+
 ```mermaid
 classDiagram
     class JobInfo {
-        <!-- 字段 -->
     }
     class PodGroupInfo {
     }
@@ -167,10 +177,9 @@ classDiagram
     }
     class Resource {
     }
-    JobInfo --> PodGroupInfo : <!-- 关联：持有什么字段 -->
-    PodGroupInfo --> QueueInfo : <!-- 关联 -->
-    NodeInfo --> Resource : <!-- 关联 -->
-    <!-- 接口实现请用 ..|> 语法，并在图注说明这是 Go 的隐式实现 -->
+    JobInfo --> PodGroupInfo : 关联
+    PodGroupInfo --> QueueInfo : 关联
+    NodeInfo --> Resource : 关联
 ```
 
 **图例与关系说明**（这一节是得分点，别省）：
@@ -216,6 +225,10 @@ classDiagram
 
 ### 4.2 成功路径
 
+<!-- 把每条消息换成你实测到的内容（触发命令、日志里那一行、对象的 phase 变化）。
+     注意：时序图的消息和 Note 里 HTML 注释会原样显示、`<b>` 会被转义，
+     所以强调只能用文字或 emoji（✅ ❌ 💀），不要用 markdown 的 `**加粗**`（会显示成星号）。 -->
+
 ```mermaid
 sequenceDiagram
     participant U as 用户
@@ -224,13 +237,13 @@ sequenceDiagram
     participant C as volcano-controllers
     participant S as volcano-scheduler
     participant K as kubelet
-    U->>API: <!-- kubectl apply -->
-    API->>W: <!-- 准入校验 -->
-    W-->>API: <!-- 通过/拒绝 -->
-    API->>C: <!-- 控制器感知 -->
-    C->>S: <!-- 创建 PodGroup / Pod -->
-    S->>API: <!-- 绑定 Pod 到节点 -->
-    API->>K: <!-- 拉起容器 -->
+    U->>API: kubectl apply
+    API->>W: 准入校验
+    W-->>API: 通过 / 拒绝
+    API->>C: 控制器感知
+    C->>S: 创建 PodGroup / Pod
+    S->>API: 绑定 Pod 到节点
+    API->>K: 拉起容器
 ```
 
 ### 4.3 调用链证据表
@@ -255,7 +268,12 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    <!-- 失败路径 -->
+    participant U as 用户
+    participant API as kube-apiserver
+    participant S as volcano-scheduler
+    U->>API: 触发条件
+    API->>S: 系统如何处理
+    S-->>U: 用户观察到什么（代码里哪一步放弃）
 ```
 
 | # | 步骤 | 观察到的事实 | 证据位置 |

@@ -19,19 +19,19 @@
 
 ```mermaid
 sequenceDiagram
-    participant Loop as 调度主循环<br/>pkg/scheduler/scheduler.go
+    participant MainLoop as 调度主循环<br/>pkg/scheduler/scheduler.go
     participant Sess as Session<br/>pkg/scheduler/framework
     participant Act as Actions<br/>enqueue → allocate → backfill
     participant Plugins as Plugins<br/>tier1 / tier2
     participant API as kube-apiserver
 
-    Loop->>Sess: 新建 Session，打开缓存快照
-    Loop->>Act: 按配置顺序执行
+    MainLoop->>Sess: 新建 Session，打开缓存快照
+    MainLoop->>Act: 按配置顺序执行
     Act->>Plugins: 逐 Job/Queue 调用扩展点
     Plugins-->>Act: 返回可行节点 / 打分
     Act->>Sess: 记录调度决策
     Act->>API: 绑定 Pod 到节点
-    Loop->>Sess: 关闭 Session，提交缓存
+    MainLoop->>Sess: 关闭 Session，提交缓存
 ```
 
 <!-- 负责人：待填 -->

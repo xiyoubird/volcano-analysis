@@ -291,17 +291,17 @@ classDiagram
         +TaskStatusIndex
     }
 
-    Scheduler o-- Cache : 关联 scheduler.go:52
-    Scheduler o-- Action : 关联 scheduler.go:59
-    SchedulerCache ..|> Cache : 实现 cache.go:104
-    Session ..> Statement : 依赖(创建) session.go:709
-    Statement --> Session : 关联 statement.go:56
-    Session o-- JobInfo : 关联 session.go:88
-    Session ..> Cache : 依赖(参数) session.go:166
-    JobUpdater --> Session : 关联 job_updater.go:47
+    Scheduler o-- Cache : 关联 scheduler.go L52
+    Scheduler o-- Action : 关联 scheduler.go L59
+    SchedulerCache ..|> Cache : 实现 cache.go L104
+    Session ..> Statement : 依赖(创建) session.go L709
+    Statement --> Session : 关联 statement.go L56
+    Session o-- JobInfo : 关联 session.go L88
+    Session ..> Cache : 依赖(参数) session.go L166
+    JobUpdater --> Session : 关联 job_updater.go L47
 ```
 
-**图例与关系说明**（这一节是得分点，别省）：
+**图例与关系说明**（这一节是得分点，别省；图中 `Lnn` = 行号，如 `scheduler.go L52` 即 `scheduler.go:52` —— mermaid 类图的关系标签里不能出现英文冒号，否则整张图解析失败）：
 
 | 边 | 关系类型 | 代码证据 | 为什么不是另一种关系 |
 | --- | --- | --- | --- |
@@ -492,7 +492,7 @@ sequenceDiagram
     participant S as Session
     U->>API: kubectl apply vcjob (minAvailable=4, 4×8CPU=32CPU)
     API->>C: Job 已写入
-    C->>API: 建 PodGroup（phase=Pending），**不建任何 Pod**
+    C->>API: 建 PodGroup（phase=Pending），❗不建任何 Pod
     Note over C: 门控：job_controller_actions.go:407<br/>pg.Status.Phase == PodGroupPending ⇒ syncTask=false
     L->>S: OpenSession → Snapshot
     S->>S: enqueue: JobEnqueueable(job)?
@@ -518,12 +518,13 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     autonumber
+    participant U2 as 用户
     participant API as kube-apiserver
     participant C as volcano-controllers
     participant L as Scheduler (allocate)
     participant S as Session
     participant ST as Statement
-    U2[用户提交 minAvailable=2, 2×8CPU, 只圈定 1 个节点]->>API: kubectl apply
+    U2->>API: kubectl apply (minAvailable=2, 2×8CPU, 只圈定 1 个节点)
     API->>C: Job 已写入
     C->>API: ✅ 建 PodGroup(Inqueue) + 2 个 Pod（过了 enqueue 门）
     L->>S: OpenSession
@@ -532,7 +533,7 @@ sequenceDiagram
     S->>S: worker-1 谓词失败：Insufficient cpu
     Note over S: JobReady(job) == false（gang 要 2 个）
     S->>ST: stmt.Discard()  statement.go:365
-    Note over ST: **逆序**撤销：<br/>unallocate → Remove Task worker-0  statement.go:347
+    Note over ST: 逆序撤销：<br/>unallocate → Remove Task worker-0  statement.go:347
     ST-->>API: ❌ 不调用 AddBindTask ⇒ etcd 无任何写入
     Note over API: Pod.spec.nodeName 始终为空 ⇒ Pending
     L->>S: closeSession → JobUpdater 仍回写 PodGroup 状态
