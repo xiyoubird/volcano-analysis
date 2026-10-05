@@ -7,6 +7,10 @@
 #
 # 这个脚本存在的唯一目的：让所有人手里的源码是**字节一致**的。
 # 报告里的每一个文件路径和行号，都只在基线 commit 上有效。
+#
+# ⚠️ 变量一律写成 ${VAR}：macOS 自带 bash 3.2 在 UTF-8 locale 下会把变量名后面紧跟的
+#    多字节字符当成变量名的一部分，`$VAR` 后面跟「，」会报 unbound variable 并直接退出。
+#    详见 scripts/setup-kind.sh 顶部注释，或跑 bash scripts/check-unbraced-vars.sh 自查。
 
 set -euo pipefail
 
@@ -44,7 +48,7 @@ info "检出基线 commit ..."
 if git cat-file -e "${BASELINE_COMMIT}^{commit}" 2>/dev/null; then
   git checkout --detach "$BASELINE_COMMIT"
 else
-  warn "本地没有 $BASELINE_COMMIT，尝试按 tag $BASELINE_TAG 检出。"
+  warn "本地没有 ${BASELINE_COMMIT}，尝试按 tag ${BASELINE_TAG} 检出。"
   git checkout --detach "$BASELINE_TAG"
 fi
 
@@ -53,7 +57,7 @@ echo
 if [ "$HEAD_SHA" = "$BASELINE_COMMIT" ]; then
   info "基线校验通过 ✅"
 else
-  die "基线校验失败！期望 $BASELINE_COMMIT，实际 $HEAD_SHA。
+  die "基线校验失败！期望 ${BASELINE_COMMIT}，实际 ${HEAD_SHA}。
      请不要继续做实验 —— 你的结果和别人的不可比。"
 fi
 

@@ -280,6 +280,7 @@ volcano-analysis/
 │       └── assets/              # 导出的图
 ├── scripts/
 │   ├── build_index.py           # 生成索引 + 模块覆盖；--check 只校验
+│   ├── check-unbraced-vars.sh   # 自查：变量后面别直接跟中文（bash 3.2 会报 unbound variable）
 │   ├── fetch-baseline.sh        # 拉取 v1.15.3 基线源码
 │   └── setup-kind.sh            # 建集群 + 部署 + smoke
 ├── data/MANIFEST.md             # 大文件登记表（>5MB 不进 git）
@@ -305,6 +306,27 @@ volcano-analysis/
 **我要测的 Action 默认没启用怎么办？**
 改调度器配置，然后在运行记录里**贴出改动后的完整配置**。默认值见
 [docs/01-architecture.md §4](docs/01-architecture.md#4-默认调度配置v1153-实测核对值)。
+
+**跑脚本报 `unbound variable`（例如 `CLUSTER_NAME?: unbound variable`）怎么办？**
+这不是环境坏了，是**脚本写法**撞上了 macOS 自带的老 bash：`/bin/bash` 是 3.2.57，
+在 UTF-8 locale（`LANG=zh_CN.UTF-8` 等）下会把变量名**后面紧跟的中文/全角符号**
+当成变量名的一部分，于是 `$VAR（` 被解析成 `${VAR（}`，配合 `set -u` 直接退出。
+仓库里的脚本已改好（变量一律写 `${VAR}`）；你自己新写脚本时跑
+`bash scripts/check-unbraced-vars.sh` 自查。应急替代：`LC_ALL=C bash scripts/setup-kind.sh`。
+
+**`describe pod` 里看到 ImagePullBackOff，或拉取报 EOF 怎么办？**
+kind **节点里的 containerd** 和宿主机 Docker 的镜像配置是两套东西（Docker Desktop 的
+`registry-mirrors` 管不到节点）。`scripts/setup-kind.sh` 默认给节点配了镜像加速
+（`REGISTRY_MIRRORS`，末尾自动补 `registry-1.docker.io` 回源）。如果镜像站的 CDN 抽风
+（实测 daocloud 对个别镜像稳定 EOF），关掉它直连重建即可：
+
+```bash
+REGISTRY_MIRRORS= bash scripts/setup-kind.sh down
+REGISTRY_MIRRORS= bash scripts/setup-kind.sh
+```
+
+> 配置写在**节点**里，所以要重建集群才生效，改 Pod 没用。取舍与实测数据见
+> [ADR-0004](docs/adr/0004-kind-k8s-132-mirror.md)。
 
 **发现分歧（指标怎么算、用哪个 K8s 版本）怎么办？**
 写 ADR，模板在 [docs/adr/0000-template.md](docs/adr/0000-template.md)。

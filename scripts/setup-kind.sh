@@ -10,15 +10,35 @@
 #
 #   可覆盖的环境变量：
 #     CLUSTER_NAME=volcano-lab      kind 集群名
-#     K8S_VERSION=1.32.0            Kubernetes 版本（→ kindest/node:v$K8S_VERSION）
+#     K8S_VERSION=1.32.0            Kubernetes 版本（→ kindest/node:v${K8S_VERSION}）
 #     WORKERS=2                     工作节点数量
 #     VOLCANO_SRC=$HOME/learn/volcano   Volcano 源码目录（必须是基线 commit）
+#     REGISTRY_MIRRORS=...          kind 节点里 containerd 的镜像加速站（逗号分隔）
+#                                   默认 daocloud + 南大；置空则不加加速配置。
+#                                   末尾会自动补 registry-1.docker.io 回源兜底。
 #
-# ⚠️ 状态说明：本脚本由脚手架生成，**尚未在真实机器上跑通验证**。
-#    第一个跑通的人请负责：
-#      1. 把实际使用的 K8s 版本写进 baseline.md §3.1，并补一份 ADR；
-#      2. 如果 arm64（Apple Silicon）上镜像拉取或调度有问题，把结论写进 docs/adr/；
-#      3. 把本脚本跑通后遇到的坑补成注释，方便后面的人。
+# ✅ 状态说明：2026-10-05 已在 macOS 15.6 / Apple Silicon（arm64）上真跑通：
+#    kind v0.31.0 + K8s 1.32.0（1 控制面 + 2 工作节点）→ Volcano v1.15.3 三个 Pod 全
+#    1/1 Running → smoke 冒烟测试两个 Pod 由 volcano 调度成功。
+#    口径与证据见 docs/adr/0004-kind-k8s-132-mirror.md，实测值已回填 baseline.md §3。
+#
+#    跑通路上踩到的三个坑（都已在脚本里处理，别再踩）：
+#      1. 变量后面紧跟中文 → macOS 自带 bash 3.2 报 unbound variable（见下方 ⚠️）；
+#      2. kind 节点里的 containerd **不读** Docker Desktop 的 registry-mirrors（那套只管
+#         宿主机 dockerd），要让节点走镜像站只能这么配。本机实测节点内直连
+#         registry-1.docker.io 是通的（HTTP 401 = 握手正常），所以加速站是"更快/更稳"，
+#         不是"必须"——但对连不通 docker.io 的网络它是救命的。镜像站抽风时用
+#         `REGISTRY_MIRRORS= bash scripts/setup-kind.sh down` 关掉直连；
+#      3. kind 集群名是全机器共享的 → 本机若已有同名集群（例如别的项目留下的 k8s 1.20
+#         集群），脚本会拦住并要求换名字，不会把 Volcano 装到错误的 K8s 版本上。
+#
+# ⚠️ 本文件里的变量一律写成 ${VAR}（带花括号），不要让 $VAR 直接跟中文/全角符号。
+#    原因（已实测）：macOS 自带 /bin/bash 是 3.2.57，在 UTF-8 locale（LANG=zh_CN.UTF-8、
+#    LC_ALL=en_US.UTF-8 等）下，bash 3.2 会把变量名后面那个多字节字符当成变量名的一部分，
+#    于是 `$VAR` 后面紧跟「（」时被解析成 ${VAR（}，报：
+#        scripts/setup-kind.sh: line 78: CLUSTER_NAME?: unbound variable
+#    再被 `set -u` 放大成整个脚本退出。同样的代码在 LC_ALL=C 下却能跑通，所以极难查。
+#    静态自查：bash scripts/check-unbraced-vars.sh
 
 set -euo pipefail
 
@@ -26,6 +46,32 @@ CLUSTER_NAME="${CLUSTER_NAME:-volcano-lab}"
 K8S_VERSION="${K8S_VERSION:-1.32.0}"
 WORKERS="${WORKERS:-2}"
 VOLCANO_SRC="${VOLCANO_SRC:-$HOME/learn/volcano}"
+REGISTRY_MIRRORS="${REGISTRY_MIRRORS:-https://docker.m.daocloud.io,https://docker.nju.edu.cn}"
+REGISTRY_FALLBACK="${REGISTRY_FALLBACK:-https://registry-1.docker.io}"
+
+# 为什么要把镜像站写进 kind 配置（实测坑）：
+#   Docker Desktop 的 registry-mirrors 只对宿主机 dockerd 生效，**管不到 kind 节点里的 containerd**，
+#   所以要让节点走镜像站，只能通过 containerdConfigPatches 写进节点配置。
+#   ⚠️ 插件路径随 containerd 版本变：kindest/node:v1.32.0 里是 containerd **1.7.24**，路径为
+#   io.containerd.grpc.v1.cri；更新的 node 镜像（containerd 2.x）改成了 io.containerd.cri.v1.images。
+#   两条都写，谁的版本认哪条就用哪条（已分别用 containerd 1.7.24 / 2.2.0 的 `config dump` 验证：
+#   两边都不报错，各自认领自己那条）。写错的那条**不报错、静默失效**——所以必须两条都有。
+#   末尾补 registry-1.docker.io 回源：镜像站的接入点不可达时还能直连。
+#   ⚠️ 回源只覆盖「接入点不可达」，**覆盖不了「镜像站给了 manifest、但它的 CDN 下载失败」**：
+#   实测 alpine:3.21 在 daocloud 的 CDN（image-mirror.r2.daocloud.vip）上稳定 EOF，此时
+#   containerd 不会改用源站（blob URL 是镜像站给的绝对地址）。
+#   遇到 EOF / 拉取卡住就把镜像站关掉重来（注意要在建集群时就改，配在节点里）：
+#       REGISTRY_MIRRORS= bash scripts/setup-kind.sh down && REGISTRY_MIRRORS= bash scripts/setup-kind.sh
+CONTAINERD_ENDPOINTS=""
+_seen=","
+for _mirror in ${REGISTRY_MIRRORS//,/ } ${REGISTRY_FALLBACK//,/ }; do
+  [ -n "$_mirror" ] || continue
+  case "$_seen" in *",${_mirror},"*) continue;; esac
+  _seen="${_seen}${_mirror},"
+  if [ -n "$CONTAINERD_ENDPOINTS" ]; then CONTAINERD_ENDPOINTS="${CONTAINERD_ENDPOINTS}, "; fi
+  CONTAINERD_ENDPOINTS="${CONTAINERD_ENDPOINTS}\"${_mirror}\""
+done
+unset _mirror _seen
 
 BASELINE_COMMIT="d2dd7024f4af3070f9d99d68a78973893908a743"
 BASELINE_TAG="v1.15.3"
@@ -71,12 +117,39 @@ cluster_exists() {
   kind get clusters 2>/dev/null | grep -qx "$CLUSTER_NAME"
 }
 
+# 已有集群的节点镜像（去重，一行一个）。用来识别"同名但不是本脚本建的"集群。
+cluster_node_images() {
+  docker ps -a \
+    --filter "label=io.x-k8s.kind.cluster=${CLUSTER_NAME}" \
+    --format '{{.Image}}' 2>/dev/null | LC_ALL=C sort -u
+}
+
 cmd_up() {
   require_tools
   verify_baseline_src
 
-  step "1/4 创建 kind 集群 $CLUSTER_NAME（K8s $K8S_VERSION，1 控制面 + $WORKERS 工作节点）"
+  step "1/4 创建 kind 集群 ${CLUSTER_NAME}（K8s ${K8S_VERSION}，1 控制面 + ${WORKERS} 工作节点）"
+  if [ -n "$CONTAINERD_ENDPOINTS" ]; then
+    info "节点内 containerd 镜像加速：${CONTAINERD_ENDPOINTS}"
+  else
+    warn "REGISTRY_MIRRORS 为空：节点直接访问 registry-1.docker.io（连不通的网络会 ImagePullBackOff）。"
+  fi
   if cluster_exists; then
+    # 同名撞车保护：kind 集群名是全机器共享的。如果已有同名集群不是本脚本建的
+    # （节点镜像对不上，比如别的项目留着的 k8s 1.20 集群），继续跑会把 Volcano
+    # 装到错误的 K8s 版本上（基线失效），而 `down` 又会把别人的集群直接删掉。
+    local existing_images
+    existing_images="$(cluster_node_images | tr '\n' ' ')"
+    existing_images="${existing_images% }"
+    if [ "$existing_images" != "$NODE_IMAGE" ]; then
+      die "集群 ${CLUSTER_NAME} 已存在，但节点镜像不是 ${NODE_IMAGE}
+     实际：${existing_images:-（查不到节点容器）}
+     这个集群大概率是别的项目建的，同名撞车了。二选一：
+       1) 换个集群名继续（不动老集群）：
+            CLUSTER_NAME=volcano-lab-132 bash scripts/setup-kind.sh
+       2) 确认老集群可以删（删了就没了）：
+            bash scripts/setup-kind.sh down && bash scripts/setup-kind.sh"
+    fi
     warn "集群 $CLUSTER_NAME 已存在，跳过创建。"
     warn "想重建请先执行：bash scripts/setup-kind.sh down"
   else
@@ -88,6 +161,16 @@ cmd_up() {
       echo "nodes:"
       echo "- role: control-plane"
       for _ in $(seq 1 "$WORKERS"); do echo "- role: worker"; done
+      if [ -n "$CONTAINERD_ENDPOINTS" ]; then
+        echo "containerdConfigPatches:"
+        echo "  - |-"
+        # containerd 1.x（kindest/node:v1.32.0 就是这档）
+        echo "    [plugins.\"io.containerd.grpc.v1.cri\".registry.mirrors.\"docker.io\"]"
+        echo "      endpoint = [${CONTAINERD_ENDPOINTS}]"
+        # containerd 2.x（插件被拆成 io.containerd.cri.v1.images）
+        echo "    [plugins.\"io.containerd.cri.v1.images\".registry.mirrors.\"docker.io\"]"
+        echo "      endpoint = [${CONTAINERD_ENDPOINTS}]"
+      fi
     } >"$cfg"
     kind create cluster --name "$CLUSTER_NAME" --image "$NODE_IMAGE" --config "$cfg"
     rm -f "$cfg"
@@ -102,7 +185,7 @@ cmd_up() {
     info "chart 依赖已就绪。"
   fi
 
-  step "3/4 部署 Volcano（chart $IMAGE_TAG / 镜像 tag $IMAGE_TAG）"
+  step "3/4 部署 Volcano（chart ${IMAGE_TAG} / 镜像 tag ${IMAGE_TAG}）"
   helm upgrade --install volcano "$CHART_PATH" \
     --namespace "$NS" --create-namespace \
     --set basic.image_tag_version="$IMAGE_TAG" \
@@ -213,7 +296,7 @@ EOF
   cat <<'EOF'
 清理冒烟测试资源：
 
-  kubectl delete job smoke-test-job
+  kubectl delete vcjob smoke-test-job      # 注意是 vcjob（Volcano 的 Job），不是原生 job
   kubectl delete queue smoke-test
 
 如果 Pod 一直 Pending，按顺序排查：

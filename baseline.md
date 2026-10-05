@@ -56,26 +56,31 @@ bash scripts/fetch-baseline.sh /tmp/vol # 或者指定路径
 
 | 项 | 本组规定值 | 我的实际值 |
 | --- | --- | --- |
-| Kubernetes 版本 | **待定 —— 见 §3.1** | 待填 |
-| 集群创建方式 | `kind`（`scripts/setup-kind.sh`） | 待填 |
+| Kubernetes 版本 | **1.32.0 —— 见 §3.1 / [ADR-0004](docs/adr/0004-kind-k8s-132-mirror.md)** | 待填 |
+| 集群创建方式 | `kind`（`scripts/setup-kind.sh`），kind v0.31.0 | 待填 |
 | Volcano 部署方式 | 源码内 Helm chart：`installer/helm/chart/volcano` | 待填 |
 | Volcano chart version | `1.15.3` | 待填 |
 | Volcano 镜像 tag | `v1.15.3` | 待填 |
-| 节点数量 / 规格 | 待定（CPU 核数、内存 GiB 必须写） | 待填 |
-| 是否有 GPU | 待定 | 待填 |
-| 主机平台 | 参考：macOS / arm64（Apple Silicon） | 待填 |
-| Go 版本（仅当你要改代码） | 见 `volcano/go.mod` 的 `go` 指令 | 待填 |
+| 节点数量 / 规格 | 1 控制面 + 2 工作节点（kind 默认容器规格，实验记录里写实际 CPU/内存） | 待填 |
+| 是否有 GPU | 无（本组不涉及 GPU 相关结论；有 GPU 的同学在报告里单独说明） | 待填 |
+| 主机平台 | macOS / arm64（Apple Silicon）—— 镜像为 **arm64 原生**，见 §3.2 | 待填 |
+| Go 版本（仅当你要改代码） | 见 `volcano/go.mod` 的 `go` 指令（v1.15.3 为 `go 1.25.0`） | 待填 |
+
+> 集群名：默认 `volcano-lab`。**本机若该名字已被别的集群占用，用 `CLUSTER_NAME=volcano-lab-132`**，
+> 不要为了腾名字去删别人的集群（`scripts/setup-kind.sh` 会拦住并提示）。
 
 ### 3.1 Kubernetes 版本
 
 上游 `v1.15.3` 的 README 兼容性矩阵标注：**Volcano v1.15 与 Kubernetes 1.23 – 1.35 完全兼容**
 （1.21 / 1.22 标为 `-`，即 Volcano 用不到这些版本的特性）。
 
-**本组统一使用：`待定`** —— 建议在 **1.31 / 1.32 / 1.33** 中选一个，理由是 kind 对这档版本支持成熟，
-且足够新。定下来之后：
-1. 把值写进这一行；
-2. 把实际用的 kind 节点镜像写进 `scripts/setup-kind.sh` 的默认值；
-3. 写一份 ADR 记录这个选择。
+**本组统一使用：`1.32.0`**（节点镜像 `kindest/node:v1.32.0`）。
+
+- 选择理由与备选方案见 [ADR-0004](docs/adr/0004-kind-k8s-132-mirror.md)；**实测证据**：
+  2026-10-05 在 macOS 15.6 / Apple Silicon 上，`scripts/setup-kind.sh` 全流程跑通，
+  Volcano v1.15.3 三个组件 Pod 全部 `1/1 Running`，smoke 冒烟作业的两个 Pod 由 volcano 调度成功。
+- 该 ADR 目前是「提议」状态，组会确认后转「已接受」。
+
 
 ### 3.2 镜像
 
@@ -85,20 +90,43 @@ docker.io/volcanosh/vc-controller-manager:v1.15.3
 docker.io/volcanosh/vc-scheduler:v1.15.3
 ```
 
-⚠️ **待验证**：在 Apple Silicon（arm64）上这些镜像是否有原生 arm64 版本。
-上游 README 称 YAML 安装方式"available for x86_64 and arm64"，但 `hack/local-up-volcano.sh`
-明确标注"only available for x86_64 temporarily"，所以本组走 **kind + Helm** 路线。
-**第一个搭好环境的人负责把结论写进 `docs/adr/`**（有则记"有"，没有则记"用 emulate 还是换机器"）。
+✅ **已验证（2026-10-05，macOS 15.6 / Apple Silicon）**：三个镜像都有**原生 arm64 版本**，
+不需要 emulation。节点内 `crictl inspecti` 的输出：
+
+```
+docker.io/volcanosh/vc-scheduler:v1.15.3           "architecture": "arm64"
+docker.io/volcanosh/vc-controller-manager:v1.15.3  "architecture": "arm64"
+docker.io/volcanosh/vc-webhook-manager:v1.15.3     "architecture": "arm64"
+```
+
+（三个节点 `architecture` 均为 arm64、kubelet `v1.32.0`。）
+
+⚠️ **拉取路径的实测结论（别想当然）**：
+
+| 从哪拉 | registry-1.docker.io 直连 | 说明 |
+| --- | --- | --- |
+| macOS 宿主机（`docker` CLI / `curl`） | ❌ 超时（8s 无响应） | Docker Desktop 的 `registry-mirrors` 只对宿主机 dockerd 生效，守护进程拉取走镜像站，所以 `docker pull` 这类宿主侧操作仍可能受凭据/网络影响 |
+| kind 节点里的 containerd | ✅ 通（HTTP 401 = 握手正常） | 节点在 Docker Desktop 的 VM 里，网络路径和宿主机不同 |
+
+结论：**镜像加速不是本机跑通的必要条件**（实测三个镜像就是节点直连拉下来的），但它是
+连不通 docker.io 的网络下的兜底，而且**配置必须写成节点那个 containerd 版本认的插件路径**：
+
+- `kindest/node:v1.32.0` 里是 **containerd 1.7.24** → 路径 `io.containerd.grpc.v1.cri`
+- containerd **2.x** 的节点镜像 → 路径 `io.containerd.cri.v1.images`
+
+写错版本**不报错、静默失效**（第一次就是这么踩的：只写了 2.x 路径，在 1.7.24 上整段被忽略，
+配置等于没写）。`scripts/setup-kind.sh` 现在**两条都写**，并自动在末尾补
+`https://registry-1.docker.io` 回源。细节见 [ADR-0004](docs/adr/0004-kind-k8s-132-mirror.md)。
 
 ### 3.3 本项目使用的工具链
 
 | 工具 | 参考版本 | 检查命令 |
 | --- | --- | --- |
-| docker | 待填 | `docker version` |
-| kind | 待填 | `kind version` |
-| kubectl | 待填 | `kubectl version --client` |
-| helm | 待填 | `helm version` |
-| go | 待填 | `go version` |
+| docker | 29.1.3（Docker Desktop） | `docker version` |
+| kind | v0.31.0 | `kind version` |
+| kubectl | v1.35.3 | `kubectl version --client` |
+| helm | v4.1.3 | `helm version` |
+| go | go 1.25.6（darwin/arm64；`go.mod` 要求 ≥ 1.25.0） | `go version` |
 
 ---
 
@@ -118,4 +146,5 @@ docker.io/volcanosh/vc-scheduler:v1.15.3
 | 日期 | 改了什么 | 谁 | 对应 ADR |
 | --- | --- | --- | --- |
 | 2026-10-05 | 初始冻结：`v1.15.3` / `d2dd7024` | （填名字） | [0001](docs/adr/0001-pin-baseline-version.md) |
+| 2026-10-05 | 环境口径落地：K8s 定为 `1.32.0`（kind v0.31.0）；确认三个镜像有原生 arm64；补节点内 containerd 镜像加速与同名撞车保护 | （填名字） | [0004](docs/adr/0004-kind-k8s-132-mirror.md) |
 |  |  |  |  |
