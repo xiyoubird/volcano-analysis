@@ -1,0 +1,30 @@
+# CODEOWNERS
+#
+# 作用：PR 里改到某个路径时，GitHub 自动把对应的人加成 reviewer。
+# 语法：<路径模式>  <@用户 或 @组织/团队>
+#
+# ⚠️ 重要：只有当被 @ 的账号对**本仓库有写权限**时，CODEOWNERS 才会生效。
+#    没加权限的账号会被 GitHub 静默忽略（不会有任何报错），你以为配好了其实没生效。
+#
+# ⚠️ 待办：把下面的占位用户名换成组员的真实 GitHub 用户名。
+#    组长（仓库 owner）：@xiyoubird
+#    组员：@<组员1> @<组员2> @<组员3> @<组员4>
+#
+# 匹配规则是「最后匹配到的那一行生效」，所以越具体的路径要写在越后面。
+
+# 默认：所有改动先找组长
+*                           @xiyoubird
+
+# 每个人的报告目录由本人 review（把下面的示例行改成真实目录和用户名）
+/reports/_example/          @xiyoubird
+# /reports/zhangsan/        @zhangsan
+# /reports/lisi/            @lisi
+# /reports/wangwu/          @wangwu
+
+# 共享内容需要组长过一眼，避免口径被单方面改掉
+/docs/                      @xiyoubird
+/templates/                 @xiyoubird
+/baseline.md                @xiyoubird
+/CONTRIBUTING.md            @xiyoubird
+/scripts/                   @xiyoubird
+/.github/                   @xiyoubird

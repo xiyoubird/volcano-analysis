@@ -1,0 +1,6 @@
+name: 示例同学
+github: example
+title: 示例报告 —— 用来演示 meta.yml 与索引生成，不参与实际汇总
+module: pkg/scheduler/plugins/gang
+status: 规划中
+updated: 2026-10-05

@@ -1,0 +1,39 @@
+# ---- 系统与编辑器 ----
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# ---- 绝不入库：集群凭据 ----
+kubeconfig
+*.kubeconfig
+.env
+*.pem
+*.key
+*secret*.yaml
+
+# ---- 交付产物（Markdown 是唯一真相源，生成物不入库）----
+dist/
+out/
+*.docx
+*.pdf
+
+# ---- 实验临时产物 / 大文件 ----
+# 规则：单个文件超过 5MB 就不要提交，走 Git LFS 或网盘 + data/MANIFEST.md
+tmp/
+*.tar
+*.tar.gz
+*.tgz
+*.img
+*.bin
+*.qcow2
+*.pprof
+*.trace
+
+# ---- 被分析对象（如果是 clone 进来的，不要提交）----
+volcano/
+vendor/
+
+# ---- Python ----
+__pycache__/
+*.pyc
