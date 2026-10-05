@@ -10,7 +10,7 @@
 #
 #   可覆盖的环境变量：
 #     CLUSTER_NAME=volcano-lab      kind 集群名
-#     K8S_VERSION=1.32.0            Kubernetes 版本（→ kindest/node:v${K8S_VERSION}）
+#     K8S_VERSION=1.27.16           Kubernetes 版本（→ kindest/node:v${K8S_VERSION}）
 #     WORKERS=2                     工作节点数量
 #     VOLCANO_SRC=$HOME/learn/volcano   Volcano 源码目录（必须是基线 commit）
 #     REGISTRY_MIRRORS=...          kind 节点里 containerd 的镜像加速站（逗号分隔）
@@ -18,9 +18,11 @@
 #                                   末尾会自动补 registry-1.docker.io 回源兜底。
 #
 # ✅ 状态说明：2026-10-05 已在 macOS 15.6 / Apple Silicon（arm64）上真跑通：
-#    kind v0.31.0 + K8s 1.32.0（1 控制面 + 2 工作节点）→ Volcano v1.15.3 三个 Pod 全
+#    kind v0.31.0 + K8s 1.27.16（1 控制面 + 2 工作节点）→ Volcano v1.15.3 三个 Pod 全
 #    1/1 Running → smoke 冒烟测试两个 Pod 由 volcano 调度成功。
-#    口径与证据见 docs/adr/0004-kind-k8s-132-mirror.md，实测值已回填 baseline.md §3。
+#    节点实测：arm64 / kubelet v1.27.16 / containerd 1.7.18 / Debian 12 (bookworm)。
+#    口径与证据见 docs/adr/0005-k8s-127-baseline.md（K8s 版本，取代 ADR-0004 的 1.32.0）
+#    与 docs/adr/0004-kind-k8s-132-mirror.md（镜像加速），实测值已回填 baseline.md §3。
 #
 #    跑通路上踩到的三个坑（都已在脚本里处理，别再踩）：
 #      1. 变量后面紧跟中文 → macOS 自带 bash 3.2 报 unbound variable（见下方 ⚠️）；
@@ -30,7 +32,8 @@
 #         不是"必须"——但对连不通 docker.io 的网络它是救命的。镜像站抽风时用
 #         `REGISTRY_MIRRORS= bash scripts/setup-kind.sh down` 关掉直连；
 #      3. kind 集群名是全机器共享的 → 本机若已有同名集群（例如别的项目留下的 k8s 1.20
-#         集群），脚本会拦住并要求换名字，不会把 Volcano 装到错误的 K8s 版本上。
+#         集群，或改版本前留下的 1.32 集群），脚本会拦住并要求换名字/先删掉，
+#         不会把 Volcano 装到错误的 K8s 版本上。
 #
 # ⚠️ 本文件里的变量一律写成 ${VAR}（带花括号），不要让 $VAR 直接跟中文/全角符号。
 #    原因（已实测）：macOS 自带 /bin/bash 是 3.2.57，在 UTF-8 locale（LANG=zh_CN.UTF-8、
@@ -43,7 +46,7 @@
 set -euo pipefail
 
 CLUSTER_NAME="${CLUSTER_NAME:-volcano-lab}"
-K8S_VERSION="${K8S_VERSION:-1.32.0}"
+K8S_VERSION="${K8S_VERSION:-1.27.16}"
 WORKERS="${WORKERS:-2}"
 VOLCANO_SRC="${VOLCANO_SRC:-$HOME/learn/volcano}"
 REGISTRY_MIRRORS="${REGISTRY_MIRRORS:-https://docker.m.daocloud.io,https://docker.nju.edu.cn}"
@@ -52,7 +55,7 @@ REGISTRY_FALLBACK="${REGISTRY_FALLBACK:-https://registry-1.docker.io}"
 # 为什么要把镜像站写进 kind 配置（实测坑）：
 #   Docker Desktop 的 registry-mirrors 只对宿主机 dockerd 生效，**管不到 kind 节点里的 containerd**，
 #   所以要让节点走镜像站，只能通过 containerdConfigPatches 写进节点配置。
-#   ⚠️ 插件路径随 containerd 版本变：kindest/node:v1.32.0 里是 containerd **1.7.24**，路径为
+#   ⚠️ 插件路径随 containerd 版本变：kindest/node:v1.27.16 里是 containerd **1.7.18**，路径为
 #   io.containerd.grpc.v1.cri；更新的 node 镜像（containerd 2.x）改成了 io.containerd.cri.v1.images。
 #   两条都写，谁的版本认哪条就用哪条（已分别用 containerd 1.7.24 / 2.2.0 的 `config dump` 验证：
 #   两边都不报错，各自认领自己那条）。写错的那条**不报错、静默失效**——所以必须两条都有。
@@ -136,8 +139,9 @@ cmd_up() {
   fi
   if cluster_exists; then
     # 同名撞车保护：kind 集群名是全机器共享的。如果已有同名集群不是本脚本建的
-    # （节点镜像对不上，比如别的项目留着的 k8s 1.20 集群），继续跑会把 Volcano
-    # 装到错误的 K8s 版本上（基线失效），而 `down` 又会把别人的集群直接删掉。
+    # （节点镜像对不上，比如别的项目留着的 k8s 1.20 集群，或本仓库改版本前留下的
+    # 1.32 集群），继续跑会把 Volcano 装到错误的 K8s 版本上（基线失效），
+    # 而 `down` 又会把别人的集群直接删掉。
     local existing_images
     existing_images="$(cluster_node_images | tr '\n' ' ')"
     existing_images="${existing_images% }"
@@ -146,7 +150,7 @@ cmd_up() {
      实际：${existing_images:-（查不到节点容器）}
      这个集群大概率是别的项目建的，同名撞车了。二选一：
        1) 换个集群名继续（不动老集群）：
-            CLUSTER_NAME=volcano-lab-132 bash scripts/setup-kind.sh
+            CLUSTER_NAME=volcano-lab-127 bash scripts/setup-kind.sh
        2) 确认老集群可以删（删了就没了）：
             bash scripts/setup-kind.sh down && bash scripts/setup-kind.sh"
     fi
@@ -164,7 +168,7 @@ cmd_up() {
       if [ -n "$CONTAINERD_ENDPOINTS" ]; then
         echo "containerdConfigPatches:"
         echo "  - |-"
-        # containerd 1.x（kindest/node:v1.32.0 就是这档）
+        # containerd 1.x（kindest/node:v1.27.16 就是这档）
         echo "    [plugins.\"io.containerd.grpc.v1.cri\".registry.mirrors.\"docker.io\"]"
         echo "      endpoint = [${CONTAINERD_ENDPOINTS}]"
         # containerd 2.x（插件被拆成 io.containerd.cri.v1.images）
@@ -301,7 +305,11 @@ EOF
 
 如果 Pod 一直 Pending，按顺序排查：
   1. kubectl -n volcano-system logs deploy/volcano-scheduler --tail=100
-  2. kubectl get podgroup smoke-test-job -o yaml        # 看 phase / conditions
+  2. kubectl get podgroups.scheduling.volcano.sh -A -o wide   # 看 phase / conditions
+     ⚠️ 别用 `kubectl get podgroup smoke-test-job`：PodGroup 的名字是
+        「<作业名>-<Job 的 UID>」，不是作业名本身
+        （源码 pkg/controllers/job/job_controller_actions.go:64 generateRelatedPodGroupName，
+         实测 1.27.16 集群上 PodGroup 名为 podgroup-probe-368fbef0-…），按作业名查一定 NotFound。
   3. kubectl describe pod <pending-pod>                  # 看 Events
   4. 确认 Pod 的 spec.schedulerName 是 volcano（不是 default-scheduler）
      —— 如果写成默认调度器，那这次测试根本没经过 Volcano，结论是假的。
